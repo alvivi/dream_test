@@ -1,6 +1,6 @@
 import dream_test/bootstrap/core_assert
 
-/// Layer 0 bootstrap checks for `core_assert`.
+/// Bootstrap checks for `core_assert`.
 ///
 /// Uses only raw `assert` to sanity-check the tiny assertion helpers.
 /// This module is not part of the public API; it's just a safety net
