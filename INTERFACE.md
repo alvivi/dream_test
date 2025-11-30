@@ -3,11 +3,12 @@
 This document describes the **interface a user writes tests with**.
 
 It focuses on:
+
 - How to **define tests** (the unit test DSL).
 - How to **make assertions**.
 - How those pieces fit together today.
 
-Internal modules such as `dream_test/types`, `dream_test/assertions/context`, `dream_test/runner`, and anything under `dream_test/bootstrap` are **not** part of the public interface and may change. They are used behind the scenes.
+Internal modules such as `dream_test/types`, `dream_test/context`, `dream_test/runner`, and anything under `dream_test/bootstrap` are **not** part of the public interface and may change. They are used behind the scenes.
 
 ---
 
@@ -40,6 +41,7 @@ pub fn tests() {
 ```
 
 Key ideas:
+
 - Test bodies are **inline** anonymous functions with no explicit context argument.
 - You define tests with `describe` and `it` from `dream_test/unit` and do **not** see `TestCase`, `UnitTest`, or runner details.
 - Assertions use `should.equal` and `should.or_fail_with` from the `dream_test/assertions/should` module.
@@ -155,7 +157,7 @@ As the framework evolves, a CLI and automatic test discovery will hide the `Unit
 These modules are internal implementation details and are intentionally **not** part of the stable test author interface:
 
 - `dream_test/types`
-- `dream_test/assertions/context` (beyond importing `TestContext`, `new`, and `failures` as shown above)
+- `dream_test/context` (beyond importing `TestContext`, `new`, and `failures` as shown above)
 - `dream_test/runner` (beyond importing `TestCase` and `run_all` until a higher‑level CLI exists)
 - Any module under `dream_test/bootstrap`
 
@@ -164,10 +166,12 @@ They are documented in `DESIGN.md` and `ARCHITECTURE.md` for maintainers, but ar
 This document shows **concrete usage examples** for the functionality that currently exists in the `dream_test` codebase.
 
 It is intentionally **implementation-accurate**:
+
 - Imports match the actual module structure and project import standards.
 - Examples only use functions and types that are already implemented.
 
 Currently implemented, user-facing pieces:
+
 - Core types: `dream_test/types`
 - Assertion helpers: `dream_test/assertions/should`
 - Unit test DSL: `dream_test/unit`
@@ -188,8 +192,8 @@ import dream_test/types
 
 pub fn example_location() {
   let location = types.Location(
-    module_: "my_module", 
-    file: "test/my_module_test.gleam", 
+    module_: "my_module",
+    file: "test/my_module_test.gleam",
     line: 42,
   )
 
@@ -260,14 +264,14 @@ pub fn example_status() {
 
 ---
 
-## 2. Assertion Context (`dream_test/assertions/context`)
+## 2. Assertion Context (`dream_test/context`)
 
 `TestContext` is the per-test state that tracks failures.
 
 ### 2.1 Basic usage
 
 ```gleam
-import dream_test/assertions/context.{type TestContext, TestContext, new, failures, add_failure}
+import dream_test/context.{type TestContext, TestContext, new, failures, add_failure}
 import dream_test/types.{AssertionFailure, Location}
 
 pub fn context_example() {
@@ -299,6 +303,7 @@ This mirrors how the bootstrap modules build failures and add them to a `TestCon
 The `should` module provides **pipe-first** helpers that operate on a `TestContext`.
 
 Currently implemented:
+
 - `equal(actual, context, expected) -> TestContext(a)`
 - `or_fail_with(test_context, message) -> TestContext(a)`
 
@@ -307,7 +312,7 @@ Currently implemented:
 Recommended imports (following `STANDARDS.md` and `AGENTS.md`):
 
 ```gleam
-import dream_test/assertions/context.{type TestContext, new, failures}
+import dream_test/context.{type TestContext, new, failures}
 import dream_test/assertions/should.{or_fail_with}
 ```
 
@@ -316,7 +321,7 @@ You can then refer to `should.equal` fully-qualified while using `or_fail_with` 
 ### 3.2 Using `equal` and `or_fail_with` together
 
 ```gleam
-import dream_test/assertions/context.{type TestContext, new, failures}
+import dream_test/context.{type TestContext, new, failures}
 import dream_test/assertions/should.{or_fail_with}
 
 pub fn example_assertions() {
@@ -356,6 +361,7 @@ This is the same pattern used in `bootstrap_should.gleam`.
 The runner executes test functions that operate on `TestContext` and produces `TestResult` values.
 
 Currently implemented:
+
 - `SingleTestConfig(a)` type
 - `TestCase(a)` type
 - `run_single_test(config) -> TestResult(a)`
@@ -365,7 +371,7 @@ Currently implemented:
 ### 4.1 Running a single test
 
 ```gleam
-import dream_test/assertions/context.{type TestContext, add_failure}
+import dream_test/context.{type TestContext, add_failure}
 import dream_test/bootstrap/core_assert
 import dream_test/types.{AssertionFailure, Location, Unit, Passed, Failed}
 import dream_test/runner.{SingleTestConfig, run_single_test}
@@ -413,7 +419,7 @@ pub fn example_runner_single() {
 ### 4.2 Running a small suite with `run_all`
 
 ```gleam
-import dream_test/assertions/context.{type TestContext, add_failure}
+import dream_test/context.{type TestContext, add_failure}
 import dream_test/types.{AssertionFailure, Location, Unit}
 import dream_test/runner.{type TestCase, TestCase, SingleTestConfig, run_all}
 
@@ -477,6 +483,7 @@ These examples are directly based on `bootstrap_runner_core.gleam` and `bootstra
 The `unit` module provides a small DSL for defining unit tests and converting them into runner `TestCase` values.
 
 Currently implemented:
+
 - `UnitTest(a)` type (`ItTest` and `DescribeGroup` constructors)
 - `it(name, run) -> UnitTest(a)`
 - `describe(name, children) -> UnitTest(a)`
@@ -485,7 +492,7 @@ Currently implemented:
 ### 5.1 Defining tests with `describe` and `it`
 
 ```gleam
-import dream_test/assertions/context.{type TestContext}
+import dream_test/context.{type TestContext}
 import dream_test/unit.{describe, it, type UnitTest, to_test_cases}
 import dream_test/runner.{type TestCase, run_all}
 
@@ -524,6 +531,7 @@ This is equivalent in shape to `bootstrap_unit_dsl.gleam`, but written as a reus
 ## 6. Putting It Together: A Minimal End-to-End Example
 
 This section shows how a user could **today**:
+
 - Define a small test tree using the unit DSL.
 - Use `should.equal` and `or_fail_with` for assertions.
 - Run those tests through the runner.
@@ -531,7 +539,7 @@ This section shows how a user could **today**:
 ```gleam
 import gleam/int
 import dream_test/types.{Location, Unit}
-import dream_test/assertions/context.{type TestContext, new}
+import dream_test/context.{type TestContext, new}
 import dream_test/assertions/should.{or_fail_with}
 import dream_test/unit.{describe, it, type UnitTest, to_test_cases}
 import dream_test/runner.{type TestCase, run_all}

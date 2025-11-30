@@ -152,7 +152,7 @@ pub fn add_failure(context, failure) {
 **Rule**
 - Do not use reserved words (like `assert`) in directory or module names.
 - Prefer clear, descriptive module paths such as:
-  - `dream_test/assertions/context`
+  - `dream_test/context`
   - `dream_test/assertions/should`
   - `dream_test/types`
   - `dream_test/runner`
@@ -198,7 +198,7 @@ value
 - Use **unqualified imports** for small, piped helpers that act on a value or context, such as `or_fail_with`.
 - Use **unqualified imports** for core types when the module name does not add clarity.
   - Prefer the explicit type-import syntax, for example:
-    - `import dream_test/assertions/context.{type TestContext, add_failure}`
+    - `import dream_test/context.{type TestContext, add_failure}`
     - Then use `TestContext` and `add_failure` directly in the module.
 - This means a typical test file will:
   - Call `should.equal` when introducing an assertion.

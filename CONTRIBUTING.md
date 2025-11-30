@@ -156,6 +156,7 @@ using #issue-number."
 - Reference issues and pull requests when relevant
 
 Examples:
+
 ```
 Add timeout support to test runner
 
@@ -262,23 +263,126 @@ Example:
 
 ```gleam
 pub fn tests() {
-  describe("should.equal", [
+  describe("Equality Matchers", [
     it("passes when values are equal", fn() {
-      should.equal(5, 5)
-      |> bootstrap_assertions.assert_passed
+      let result = 5 |> should.equal(5)
+
+      case result {
+        AssertionOk -> AssertionOk
+        AssertionFailed(_) -> {
+          False
+          |> should.equal(True)
+          |> or_fail_with("equal should pass for matching values")
+        }
+      }
     }),
-    
+
     it("fails when values differ", fn() {
-      should.equal(5, 10)
-      |> bootstrap_assertions.assert_failed
-    }),
-    
-    it("works with complex types", fn() {
-      should.equal(Ok(42), Ok(42))
-      |> bootstrap_assertions.assert_passed
+      let result = 5 |> should.equal(10)
+
+      case result {
+        AssertionFailed(_) -> AssertionOk
+        AssertionOk -> {
+          False
+          |> should.equal(True)
+          |> or_fail_with("equal should fail for non-matching values")
+        }
+      }
     }),
   ])
 }
+```
+
+### The Matcher System
+
+dream_test provides a comprehensive matcher system accessible through the `should.*` API. All matchers are pipe-friendly and return `AssertionResult`.
+
+#### Available Matchers
+
+**Equality**
+- `should.equal(expected)` - Values are equal
+- `should.not_equal(unexpected)` - Values are not equal
+
+**Boolean**
+- `should.be_true()` - Value is True
+- `should.be_false()` - Value is False
+
+**Option**
+- `should.be_some()` - Option is Some
+- `should.be_none()` - Option is None
+- `should.be_some_and(matcher)` - Option is Some and inner value matches
+
+**Result**
+- `should.be_ok()` - Result is Ok
+- `should.be_error()` - Result is Error
+- `should.be_ok_and(matcher)` - Result is Ok and inner value matches
+
+**Collection**
+- `should.contain(item)` - List contains item
+- `should.not_contain(item)` - List doesn't contain item
+- `should.have_length(n)` - List has length n
+- `should.be_empty()` - List is empty
+
+**Comparison**
+- `should.be_greater_than(threshold)` - Value > threshold
+- `should.be_less_than(threshold)` - Value < threshold
+- `should.be_at_least(minimum)` - Value >= minimum
+- `should.be_at_most(maximum)` - Value <= maximum
+- `should.be_between(min, max)` - min < value < max (exclusive)
+- `should.be_in_range(min, max)` - min <= value <= max (inclusive)
+- `should.be_greater_than_float(threshold)` - Float comparison
+- `should.be_less_than_float(threshold)` - Float comparison
+
+**String**
+- `should.start_with(prefix)` - String starts with prefix
+- `should.end_with(suffix)` - String ends with suffix
+- `should.contain_string(substring)` - String contains substring
+
+#### Custom Matchers
+
+For domain-specific assertions, create custom matchers following this pattern:
+
+```gleam
+import dream_test/types.{
+  type AssertionResult, AssertionFailed, AssertionFailure, AssertionOk, Location,
+  CustomMatcherFailure,
+}
+import gleam/option.{Some}
+import gleam/string
+
+pub fn be_even(value: Int) -> AssertionResult {
+  case value % 2 == 0 {
+    True -> AssertionOk
+
+    False -> {
+      let payload =
+        CustomMatcherFailure(
+          actual: string.inspect(value),
+          description: "value was odd",
+        )
+
+      AssertionFailed(AssertionFailure(
+        operator: "be_even",
+        message: "expected even number",
+        location: Location("unknown", "unknown", 0),
+        payload: Some(payload),
+      ))
+    }
+  }
+}
+
+// Usage reads naturally:
+42 |> be_even()
+```
+
+**Custom Matcher Guidelines:**
+- Return `AssertionResult` (either `AssertionOk` or `AssertionFailed`)
+- Use descriptive operator names
+- Create appropriate `FailurePayload` variants for rich error reporting
+- Keep matchers pure and side-effect free
+- Name matchers with verbs that read well after `should.`
+
+**Note:** The `matchers/` directory is for internal organization. Users should always interact with matchers through the `should.*` API
 ```
 
 ### Bootstrap Testing
@@ -312,7 +416,7 @@ gleam test
 - Include examples in documentation where helpful
 - Document parameters, return values, and any important behavior
 
-```gleam
+````gleam
 /// Asserts that the actual value equals the expected value.
 ///
 /// Returns a TestContext with the assertion result. Use with `or_fail_with`
@@ -326,7 +430,7 @@ gleam test
 /// |> or_fail_with("Values should be equal")
 /// ```
 pub fn equal(actual: a, expected: a) -> TestContext(a) { ... }
-```
+````
 
 ### Updating Documentation Files
 
@@ -414,4 +518,3 @@ Your contributions make dream_test better for everyone. We appreciate your time 
 <div align="center">
   <sub>Happy testing! 🧪</sub>
 </div>
-

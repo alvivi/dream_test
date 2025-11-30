@@ -21,3 +21,4 @@ pub fn failures(context: TestContext) -> List(AssertionFailure) {
 pub fn add_failure(context: TestContext, failure: AssertionFailure) -> TestContext {
   TestContext(failures: [failure, ..context.failures])
 }
+

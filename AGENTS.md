@@ -39,7 +39,7 @@ It is **not** user-facing documentation. It exists to reduce repeated mistakes.
 ## 3. Type Imports
 
 - To import a **type** unqualified, use the `type` syntax:
-  - `import dream_test/assertions/context.{type TestContext, add_failure}`
+  - `import dream_test/context.{type TestContext, add_failure}`
   - Then use `TestContext` and `add_failure` directly.
 - Importing a constructor or value without `type` does **not** make it available as a type.
   - If you see "There is a value in scope with the name X, but no type in scope with that name", you probably forgot `type`.

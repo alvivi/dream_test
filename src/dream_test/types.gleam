@@ -2,15 +2,10 @@
 ///
 /// This module does not depend on the runner or assertion engine and can be
 /// safely imported from most other layers.
-
 import gleam/option.{type Option}
 
 pub type Location {
-  Location(
-    module_: String,
-    file: String,
-    line: Int,
-  )
+  Location(module_: String, file: String, line: Int)
 }
 
 pub type Status {
@@ -28,10 +23,14 @@ pub type TestKind {
 }
 
 pub type FailurePayload {
-  EqualityFailure(
-    actual: String,
-    expected: String,
-  )
+  EqualityFailure(actual: String, expected: String)
+  BooleanFailure(actual: Bool, expected: Bool)
+  OptionFailure(actual: String, expected_some: Bool)
+  ResultFailure(actual: String, expected_ok: Bool)
+  CollectionFailure(actual: String, expected: String, operation: String)
+  ComparisonFailure(actual: String, expected: String, operator: String)
+  StringMatchFailure(actual: String, pattern: String, operation: String)
+  CustomMatcherFailure(actual: String, description: String)
 }
 
 pub type AssertionFailure {
@@ -62,9 +61,7 @@ pub type ModuleCoverage {
 }
 
 pub type CoverageSummary {
-  CoverageSummary(
-    by_module: List(ModuleCoverage),
-  )
+  CoverageSummary(by_module: List(ModuleCoverage))
 }
 
 pub type TestResult {
