@@ -1,4 +1,5 @@
 import dream_test/assertions/should_test
+import dream_test/lifecycle_test
 import dream_test/process_test
 import dream_test/reporter/bdd.{report}
 import dream_test/reporter/bdd_test
@@ -20,6 +21,7 @@ pub fn main() {
       bdd_test.tests(),
       sandbox_test.tests(),
       process_test.tests(),
+      lifecycle_test.tests(),
     ])
 
   let test_cases = to_test_cases("dream_test_test", all_tests)

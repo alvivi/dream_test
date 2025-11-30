@@ -66,6 +66,7 @@ dream_test = "~> 0.1"
 | **Parallel by default** | Tests run concurrently across all cores—100 tests finish ~4x faster on 4 cores |
 | **Crash-proof**         | Each test runs in an isolated BEAM process; one crash doesn't kill the suite   |
 | **Timeout-protected**   | Hanging tests get killed automatically; no more stuck CI pipelines             |
+| **Lifecycle hooks**     | `before_all`, `before_each`, `after_each`, `after_all` for setup/teardown      |
 | **Gleam-native**        | Pipe-first assertions that feel natural; no macros, no reflection, no magic    |
 | **Familiar syntax**     | If you've used Jest, RSpec, or Mocha, you already know the basics              |
 | **Type-safe**           | Your tests are just Gleam code; the compiler catches mistakes early            |
@@ -186,6 +187,130 @@ case result {
 
 ---
 
+## Lifecycle Hooks
+
+Setup and teardown logic for your tests. Dream_test supports four lifecycle hooks
+that let you run code before and after tests.
+
+```gleam
+import dream_test/unit.{describe, it, before_each, after_each, before_all, after_all}
+import dream_test/types.{AssertionOk}
+
+describe("Database tests", [
+  before_all(fn() {
+    start_database()
+    AssertionOk
+  }),
+
+  before_each(fn() {
+    begin_transaction()
+    AssertionOk
+  }),
+
+  it("creates a user", fn() { ... }),
+  it("deletes a user", fn() { ... }),
+
+  after_each(fn() {
+    rollback_transaction()
+    AssertionOk
+  }),
+
+  after_all(fn() {
+    stop_database()
+    AssertionOk
+  }),
+])
+```
+
+### Hook Types
+
+| Hook          | Runs                              | Use case                          |
+| ------------- | --------------------------------- | --------------------------------- |
+| `before_all`  | Once before all tests in group    | Start services, create temp files |
+| `before_each` | Before each test                  | Reset state, begin transaction    |
+| `after_each`  | After each test (even on failure) | Rollback, cleanup temp data       |
+| `after_all`   | Once after all tests in group     | Stop services, remove temp files  |
+
+### Two Execution Modes
+
+Choose the mode based on which hooks you need:
+
+| Mode  | Function                      | Hooks supported             |
+| ----- | ----------------------------- | --------------------------- |
+| Flat  | `to_test_cases` → `run_all`   | `before_each`, `after_each` |
+| Suite | `to_test_suite` → `run_suite` | All four hooks              |
+
+**Flat mode** — simpler, faster; use when you only need per-test setup:
+
+```gleam
+import dream_test/unit.{describe, it, before_each, to_test_cases}
+import dream_test/runner.{run_all}
+
+tests()
+|> to_test_cases("my_test")
+|> run_all()
+|> report(io.print)
+```
+
+**Suite mode** — preserves group structure; use when you need once-per-group setup:
+
+```gleam
+import dream_test/unit.{describe, it, before_all, after_all, to_test_suite}
+import dream_test/runner.{run_suite}
+
+tests()
+|> to_test_suite("my_test")
+|> run_suite()
+|> report(io.print)
+```
+
+### Hook Inheritance
+
+Nested `describe` blocks inherit parent hooks. Hooks run outer-to-inner for
+setup, inner-to-outer for teardown:
+
+```gleam
+describe("Outer", [
+  before_each(fn() { io.println("1. outer setup"); AssertionOk }),
+  after_each(fn() { io.println("4. outer teardown"); AssertionOk }),
+
+  describe("Inner", [
+    before_each(fn() { io.println("2. inner setup"); AssertionOk }),
+    after_each(fn() { io.println("3. inner teardown"); AssertionOk }),
+
+    it("test", fn() { ... }),
+  ]),
+])
+// Output: 1. outer setup → 2. inner setup → (test) → 3. inner teardown → 4. outer teardown
+```
+
+### Hook Failure Behavior
+
+If a hook fails, dream_test handles it gracefully:
+
+| Failure in    | Result                                            |
+| ------------- | ------------------------------------------------- |
+| `before_all`  | All tests in group marked `SetupFailed`, skipped  |
+| `before_each` | That test marked `SetupFailed`, skipped           |
+| `after_each`  | Test result preserved; hook failure recorded      |
+| `after_all`   | Hook failure recorded; all test results preserved |
+
+```gleam
+describe("Handles failures", [
+  before_all(fn() {
+    case connect_to_database() {
+      Ok(_) -> AssertionOk
+      Error(e) -> fail_with("Database connection failed: " <> e)
+    }
+  }),
+  // If before_all fails, these tests are marked SetupFailed (not run)
+  it("test1", fn() { ... }),
+  it("test2", fn() { ... }),
+])
+```
+
+---
+
 ## BEAM-Powered Test Isolation
 
 Every test runs in its own BEAM process:
@@ -229,17 +354,57 @@ test_cases
 
 ## How It Works
 
+Dream_test uses an explicit pipeline—no hidden globals, no magic test discovery.
+
+### Flat Mode (most common)
+
 ```
 describe/it  →  to_test_cases  →  run_all  →  report
    (DSL)         (flatten)       (execute)   (format)
 ```
 
-1. **Define** tests with `describe`/`it` → builds a test tree
-2. **Convert** with `to_test_cases` → flattens to runnable cases
-3. **Run** with `run_all` → executes in parallel with isolation
-4. **Report** with your choice of formatter → outputs results
+1. **Define** tests with `describe`/`it` — builds a test tree
+2. **Convert** with `to_test_cases` — flattens to runnable cases
+3. **Run** with `run_all` — executes in parallel with isolation
+4. **Report** with your choice of formatter — outputs results
 
-No hidden globals. No test discovery magic. You control the entire flow.
+### Suite Mode (for `before_all`/`after_all`)
+
+```
+describe/it  →  to_test_suite  →  run_suite  →  report
+   (DSL)         (preserve)       (execute)    (format)
+```
+
+Suite mode preserves the group hierarchy so hooks can run at group boundaries.
+
+### Under the Hood
+
+Each test runs in its own BEAM process:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Test Runner (main process)                                      │
+│                                                                  │
+│  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐                  │
+│  │ Test 1 │  │ Test 2 │  │ Test 3 │  │ Test 4 │  ← parallel     │
+│  │ (proc) │  │ (proc) │  │ (proc) │  │ (proc) │    processes    │
+│  └────────┘  └────────┘  └────────┘  └────────┘                  │
+│       │           │           │           │                      │
+│       └───────────┴───────────┴───────────┘                      │
+│                         │                                        │
+│                    Collect Results                               │
+│                         │                                        │
+│                    ┌────────┐                                    │
+│                    │ Report │                                    │
+│                    └────────┘                                    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+Benefits:
+
+- A crashing test doesn't affect others
+- Timeouts are enforced via process killing
+- Resources linked to test processes are cleaned up automatically
 
 ---
 
@@ -260,6 +425,7 @@ No hidden globals. No test discovery magic. You control the entire flow.
 | Feature                    | Status    |
 | -------------------------- | --------- |
 | Core DSL (`describe`/`it`) | ✅ Stable |
+| Lifecycle hooks            | ✅ Stable |
 | Assertions (`should.*`)    | ✅ Stable |
 | BDD Reporter               | ✅ Stable |
 | Parallel execution         | ✅ Stable |

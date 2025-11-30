@@ -1,0 +1,117 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the information below to help us reproduce and fix the issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+      placeholder: When I do X, Y happens instead of Z...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Provide step-by-step instructions to reproduce the issue.
+      placeholder: |
+        1. Create a new project with `gleam new`
+        2. Add dream_test dependency
+        3. Run the following code...
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+      placeholder: I expected the test to pass / the assertion to return...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include error messages if applicable.
+      placeholder: Instead, I got this error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Code sample
+      description: Provide a minimal code example that reproduces the issue.
+      placeholder: |
+        ```gleam
+        import dream_test/unit.{describe, it}
+        import dream_test/assertions/should.{should, equal, or_fail_with}
+
+        pub fn tests() {
+          describe("My test", [
+            it("fails unexpectedly", fn() {
+              // Your code here
+            }),
+          ])
+        }
+        ```
+      render: gleam
+
+  - type: input
+    id: dream-test-version
+    attributes:
+      label: dream_test version
+      description: What version of dream_test are you using?
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: gleam-version
+    attributes:
+      label: Gleam version
+      description: Run `gleam --version` to get your version
+      placeholder: "1.13.0"
+    validations:
+      required: true
+
+  - type: input
+    id: erlang-version
+    attributes:
+      label: Erlang/OTP version
+      description: Run `erl -version` to get your version
+      placeholder: "28.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: What operating system are you using?
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add any other context about the problem here (screenshots, logs, etc.)
+      placeholder: Any other relevant information...
+

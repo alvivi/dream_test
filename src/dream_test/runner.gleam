@@ -55,8 +55,8 @@
 
 import dream_test/parallel
 import dream_test/types.{
-  type SingleTestConfig, type TestCase, type TestResult, AssertionFailed,
-  AssertionOk, TestCase, TestResult, status_from_failures,
+  type SingleTestConfig, type TestCase, type TestResult, type TestSuite,
+  AssertionFailed, AssertionOk, TestCase, TestResult, status_from_failures,
 }
 import gleam/list
 
@@ -197,6 +197,175 @@ pub fn run_all_with_config(
 ///
 pub fn run_all(test_cases: List(TestCase)) -> List(TestResult) {
   run_all_with_config(default_config(), test_cases)
+}
+
+// =============================================================================
+// Suite Execution (with before_all/after_all support)
+// =============================================================================
+
+/// Run a test suite with custom configuration.
+///
+/// Use this when you need `before_all`/`after_all` hooks with custom
+/// concurrency or timeout settings. For default settings, use `run_suite`.
+///
+/// ## Execution Flow
+///
+/// For each group in the suite:
+///
+/// ```text
+/// ┌─────────────────────────────────────────────────────────────┐
+/// │ 1. Run before_all hooks (sequentially)                      │
+/// │    └─ If any fail → mark all tests as SetupFailed, skip to 5│
+/// │                                                              │
+/// │ 2. For each test:                                           │
+/// │    ├─ Run before_each hooks (outer → inner)                 │
+/// │    ├─ Run test body                                         │
+/// │    └─ Run after_each hooks (inner → outer)                  │
+/// │                                                              │
+/// │ 3. Tests run in parallel (up to max_concurrency)            │
+/// │                                                              │
+/// │ 4. Process nested groups (recurse)                          │
+/// │                                                              │
+/// │ 5. Run after_all hooks (always, even on failure)            │
+/// └─────────────────────────────────────────────────────────────┘
+/// ```
+///
+/// ## Parallelism
+///
+/// - Tests within a group run in parallel
+/// - `before_all` and `after_all` are synchronization barriers
+/// - Nested groups are processed after their parent's tests complete
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_test/unit.{describe, it, before_all, after_all, to_test_suite}
+/// import dream_test/runner.{run_suite_with_config, RunnerConfig}
+/// import dream_test/reporter/bdd.{report}
+/// import dream_test/types.{AssertionOk}
+/// import gleam/io
+///
+/// pub fn main() {
+///   // Custom config for integration tests
+///   let config = RunnerConfig(
+///     max_concurrency: 2,          // Limit parallelism for shared resources
+///     default_timeout_ms: 30_000,  // 30s timeout for slow operations
+///   )
+///
+///   integration_tests()
+///   |> to_test_suite("integration_test")
+///   |> run_suite_with_config(config)
+///   |> report(io.print)
+/// }
+///
+/// fn integration_tests() {
+///   describe("Database", [
+///     before_all(fn() { start_database(); AssertionOk }),
+///     before_each(fn() { begin_transaction(); AssertionOk }),
+///
+///     it("creates users", fn() { ... }),
+///     it("queries users", fn() { ... }),
+///
+///     after_each(fn() { rollback_transaction(); AssertionOk }),
+///     after_all(fn() { stop_database(); AssertionOk }),
+///   ])
+/// }
+/// ```
+///
+/// ## Parameters
+///
+/// - `config` - Execution settings (concurrency, timeout)
+/// - `suite` - The test suite from `to_test_suite`
+///
+/// ## Returns
+///
+/// List of `TestResult` for all tests in the suite.
+///
+pub fn run_suite_with_config(
+  config: RunnerConfig,
+  suite: TestSuite,
+) -> List(TestResult) {
+  let parallel_config =
+    parallel.ParallelConfig(
+      max_concurrency: config.max_concurrency,
+      default_timeout_ms: config.default_timeout_ms,
+    )
+  parallel.run_suite_parallel(parallel_config, suite)
+}
+
+/// Run a test suite with default configuration.
+///
+/// This is the recommended way to run tests when you need `before_all`
+/// or `after_all` hooks. It uses sensible defaults suitable for most
+/// integration test suites.
+///
+/// ## Default Configuration
+///
+/// | Setting            | Value   | Meaning                              |
+/// |--------------------|---------|--------------------------------------|
+/// | `max_concurrency`  | 4       | Up to 4 tests run in parallel        |
+/// | `default_timeout`  | 5000ms  | Each test has 5 seconds to complete  |
+///
+/// For custom settings, use `run_suite_with_config`.
+///
+/// ## When to Use `run_suite` vs `run_all`
+///
+/// ```gleam
+/// // Use run_all when you DON'T need before_all/after_all
+/// tests()
+/// |> to_test_cases("my_test")
+/// |> run_all()
+///
+/// // Use run_suite when you DO need before_all/after_all
+/// tests()
+/// |> to_test_suite("my_test")
+/// |> run_suite()
+/// ```
+///
+/// ## Example
+///
+/// ```gleam
+/// import dream_test/unit.{describe, it, before_all, after_all, to_test_suite}
+/// import dream_test/runner.{run_suite}
+/// import dream_test/reporter/bdd.{report}
+/// import dream_test/types.{AssertionOk}
+/// import gleam/io
+///
+/// pub fn main() {
+///   tests()
+///   |> to_test_suite("my_integration_test")
+///   |> run_suite()
+///   |> report(io.print)
+/// }
+///
+/// fn tests() {
+///   describe("API client", [
+///     before_all(fn() {
+///       start_mock_server()
+///       AssertionOk
+///     }),
+///
+///     it("fetches data", fn() { ... }),
+///     it("handles errors", fn() { ... }),
+///
+///     after_all(fn() {
+///       stop_mock_server()
+///       AssertionOk
+///     }),
+///   ])
+/// }
+/// ```
+///
+/// ## Parameters
+///
+/// - `suite` - The test suite from `to_test_suite`
+///
+/// ## Returns
+///
+/// List of `TestResult` for all tests in the suite.
+///
+pub fn run_suite(suite: TestSuite) -> List(TestResult) {
+  run_suite_with_config(default_config(), suite)
 }
 
 /// Run all tests sequentially without process isolation.

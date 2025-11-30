@@ -5,8 +5,8 @@
 /// using the sandbox module.
 import dream_test/types.{
   type AssertionResult, type SingleTestConfig, type TestCase, type TestResult,
-  AssertionFailed, AssertionOk, Failed, TestCase, TestResult, TimedOut,
-  status_from_failures,
+  type TestSuite, type TestSuiteItem, AssertionFailed, AssertionOk, Failed,
+  SetupFailed, SuiteGroup, SuiteTest, TestCase, TestResult, TimedOut,
 }
 import gleam/erlang/process.{
   type Pid, type Selector, type Subject, kill, monitor, new_selector,
@@ -60,7 +60,7 @@ type IndexedResult {
 
 /// Message from a worker process.
 type WorkerResult {
-  WorkerCompleted(index: Int, assertion_result: AssertionResult)
+  WorkerCompleted(index: Int, test_run_result: TestRunResult)
   WorkerDown(index: Int, reason: String)
 }
 
@@ -162,8 +162,8 @@ fn spawn_test_worker(
 
   let worker_pid =
     spawn_unlinked(fn() {
-      let assertion_result = run_test_directly(test_case)
-      send(results_subject, WorkerCompleted(test_index, assertion_result))
+      let test_run_result = run_test_directly(test_case)
+      send(results_subject, WorkerCompleted(test_index, test_run_result))
     })
 
   let worker_monitor = monitor(worker_pid)
@@ -176,10 +176,74 @@ fn spawn_test_worker(
   )
 }
 
+/// Result of running a test with hooks.
+/// Tracks whether the failure came from setup, test, or teardown.
+type TestRunResult {
+  /// Test passed (all hooks and test body passed)
+  TestPassed
+  /// A before_each hook failed (test was not run)
+  SetupFailure(failure: types.AssertionFailure)
+  /// The test body failed
+  TestFailure(failure: types.AssertionFailure)
+  /// An after_each hook failed (test may have passed)
+  TeardownFailure(failure: types.AssertionFailure)
+}
+
 /// Run a test case directly in the current process.
-fn run_test_directly(test_case: TestCase) -> AssertionResult {
+///
+/// Executes lifecycle hooks in the correct order:
+/// 1. Run before_each hooks (outer to inner)
+/// 2. If all hooks pass, run the test
+/// 3. Run after_each hooks (inner to outer), even if test failed
+fn run_test_directly(test_case: TestCase) -> TestRunResult {
   case test_case {
-    TestCase(single_config) -> single_config.run()
+    TestCase(config) -> run_with_hooks(config)
+  }
+}
+
+/// Run a test with its before_each and after_each hooks.
+fn run_with_hooks(config: SingleTestConfig) -> TestRunResult {
+  // Run before_each hooks
+  let before_result = run_hooks(config.before_each_hooks)
+
+  case before_result {
+    AssertionFailed(failure) -> SetupFailure(failure)
+    AssertionOk -> run_test_and_after(config)
+  }
+}
+
+fn run_test_and_after(config: SingleTestConfig) -> TestRunResult {
+  // Run the test
+  let test_result = config.run()
+
+  // Always run after_each hooks
+  let after_result = run_hooks(config.after_each_hooks)
+
+  // Determine final result
+  case test_result, after_result {
+    AssertionFailed(failure), _ -> TestFailure(failure)
+    AssertionOk, AssertionFailed(failure) -> TeardownFailure(failure)
+    AssertionOk, AssertionOk -> TestPassed
+  }
+}
+
+/// Run a list of hooks sequentially, stopping on first failure.
+fn run_hooks(hooks: List(fn() -> AssertionResult)) -> AssertionResult {
+  run_hooks_from_list(hooks)
+}
+
+fn run_hooks_from_list(
+  remaining: List(fn() -> AssertionResult),
+) -> AssertionResult {
+  case remaining {
+    [] -> AssertionOk
+    [hook, ..rest] -> {
+      let result = hook()
+      case result {
+        AssertionOk -> run_hooks_from_list(rest)
+        AssertionFailed(_) -> result
+      }
+    }
   }
 }
 
@@ -306,31 +370,63 @@ fn convert_worker_result_with_config(
   worker_result: WorkerResult,
 ) -> TestResult {
   case worker_result {
-    WorkerCompleted(_, assertion_result) ->
-      assertion_result_to_test_result(config, assertion_result)
+    WorkerCompleted(_, test_run_result) ->
+      test_run_result_to_test_result(config, test_run_result)
     WorkerDown(_, reason) -> make_crashed_result(config, reason)
   }
 }
 
-/// Convert an AssertionResult to a TestResult.
-fn assertion_result_to_test_result(
+/// Convert a TestRunResult to a TestResult.
+fn test_run_result_to_test_result(
   config: SingleTestConfig,
-  assertion_result: AssertionResult,
+  test_run_result: TestRunResult,
 ) -> TestResult {
-  let failures = case assertion_result {
-    AssertionOk -> []
-    AssertionFailed(failure) -> [failure]
+  case test_run_result {
+    TestPassed -> make_passed_result(config)
+    SetupFailure(failure) -> make_setup_failed_result(config, failure)
+    TestFailure(failure) -> make_failed_result(config, failure)
+    TeardownFailure(failure) -> make_failed_result(config, failure)
   }
+}
 
-  let status = status_from_failures(failures)
-
+fn make_passed_result(config: SingleTestConfig) -> TestResult {
   TestResult(
     name: config.name,
     full_name: config.full_name,
-    status: status,
+    status: types.Passed,
     duration_ms: 0,
     tags: config.tags,
-    failures: failures,
+    failures: [],
+    kind: config.kind,
+  )
+}
+
+fn make_setup_failed_result(
+  config: SingleTestConfig,
+  failure: types.AssertionFailure,
+) -> TestResult {
+  TestResult(
+    name: config.name,
+    full_name: config.full_name,
+    status: SetupFailed,
+    duration_ms: 0,
+    tags: config.tags,
+    failures: [failure],
+    kind: config.kind,
+  )
+}
+
+fn make_failed_result(
+  config: SingleTestConfig,
+  failure: types.AssertionFailure,
+) -> TestResult {
+  TestResult(
+    name: config.name,
+    full_name: config.full_name,
+    status: Failed,
+    duration_ms: 0,
+    tags: config.tags,
+    failures: [failure],
     kind: config.kind,
   )
 }
@@ -422,5 +518,147 @@ fn compare_indices_not_less(a: Int, b: Int) -> order.Order {
   case a > b {
     True -> order.Gt
     False -> order.Eq
+  }
+}
+
+// =============================================================================
+// Suite Execution (with before_all/after_all support)
+// =============================================================================
+
+/// Run a test suite with before_all/after_all semantics.
+///
+/// Execution flow for each group:
+/// 1. Run before_all hooks sequentially
+/// 2. If any fail, mark all tests in group as SetupFailed
+/// 3. Run tests in parallel (with their before_each/after_each)
+/// 4. Wait for all tests to complete
+/// 5. Run after_all hooks sequentially
+/// 6. Recurse for nested groups
+///
+pub fn run_suite_parallel(
+  config: ParallelConfig,
+  suite: TestSuite,
+) -> List(TestResult) {
+  run_suite_group(config, suite)
+}
+
+fn run_suite_group(config: ParallelConfig, suite: TestSuite) -> List(TestResult) {
+  // Run before_all hooks
+  let before_all_result = run_hooks(suite.before_all_hooks)
+
+  case before_all_result {
+    AssertionFailed(failure) ->
+      mark_all_items_as_setup_failed(suite.items, failure)
+    AssertionOk -> {
+      // Run all items (tests and nested groups)
+      let results = run_suite_items(config, suite.items)
+
+      // Run after_all hooks (regardless of test results)
+      let _after_all_result = run_hooks(suite.after_all_hooks)
+
+      // Return results (after_all failures don't change test results)
+      results
+    }
+  }
+}
+
+fn mark_all_items_as_setup_failed(
+  items: List(TestSuiteItem),
+  failure: types.AssertionFailure,
+) -> List(TestResult) {
+  mark_items_failed_from_list(items, failure, [])
+}
+
+fn mark_items_failed_from_list(
+  remaining: List(TestSuiteItem),
+  failure: types.AssertionFailure,
+  accumulated: List(TestResult),
+) -> List(TestResult) {
+  case remaining {
+    [] -> list.reverse(accumulated)
+    [item, ..rest] -> {
+      let results = mark_item_as_setup_failed(item, failure)
+      let updated = list.append(list.reverse(results), accumulated)
+      mark_items_failed_from_list(rest, failure, updated)
+    }
+  }
+}
+
+fn mark_item_as_setup_failed(
+  item: TestSuiteItem,
+  failure: types.AssertionFailure,
+) -> List(TestResult) {
+  case item {
+    SuiteTest(test_case) -> {
+      let TestCase(config) = test_case
+      [make_setup_failed_result(config, failure)]
+    }
+    SuiteGroup(nested_suite) ->
+      mark_all_items_as_setup_failed(nested_suite.items, failure)
+  }
+}
+
+fn run_suite_items(
+  config: ParallelConfig,
+  items: List(TestSuiteItem),
+) -> List(TestResult) {
+  // Separate tests from nested groups
+  let tests = collect_tests_from_items(items, [])
+  let groups = collect_groups_from_items(items, [])
+
+  // Run tests in parallel
+  let test_results = run_parallel(config, tests)
+
+  // Run nested groups (each group runs its before_all/after_all)
+  let group_results = run_groups_sequentially(config, groups, [])
+
+  // Combine results (tests first, then groups, preserving order)
+  list.append(test_results, group_results)
+}
+
+fn collect_tests_from_items(
+  remaining: List(TestSuiteItem),
+  accumulated: List(TestCase),
+) -> List(TestCase) {
+  case remaining {
+    [] -> list.reverse(accumulated)
+    [item, ..rest] -> {
+      let updated = case item {
+        SuiteTest(test_case) -> [test_case, ..accumulated]
+        SuiteGroup(_) -> accumulated
+      }
+      collect_tests_from_items(rest, updated)
+    }
+  }
+}
+
+fn collect_groups_from_items(
+  remaining: List(TestSuiteItem),
+  accumulated: List(TestSuite),
+) -> List(TestSuite) {
+  case remaining {
+    [] -> list.reverse(accumulated)
+    [item, ..rest] -> {
+      let updated = case item {
+        SuiteTest(_) -> accumulated
+        SuiteGroup(suite) -> [suite, ..accumulated]
+      }
+      collect_groups_from_items(rest, updated)
+    }
+  }
+}
+
+fn run_groups_sequentially(
+  config: ParallelConfig,
+  remaining: List(TestSuite),
+  accumulated: List(TestResult),
+) -> List(TestResult) {
+  case remaining {
+    [] -> list.reverse(accumulated)
+    [suite, ..rest] -> {
+      let results = run_suite_group(config, suite)
+      let updated = list.append(list.reverse(results), accumulated)
+      run_groups_sequentially(config, rest, updated)
+    }
   }
 }

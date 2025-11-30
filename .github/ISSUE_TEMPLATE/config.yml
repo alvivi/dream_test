@@ -1,0 +1,9 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 Question or Discussion
+    url: https://github.com/TrustBound/dream_test/discussions
+    about: Ask questions or discuss ideas with the community
+  - name: 📚 Documentation
+    url: https://hexdocs.pm/dream_test/
+    about: Read the HexDocs documentation
+

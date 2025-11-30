@@ -20,6 +20,8 @@ pub fn tests() {
             kind: Unit,
             run: fn() { AssertionOk },
             timeout_ms: None,
+            before_each_hooks: [],
+            after_each_hooks: [],
           )
         let expected = Passed
 
@@ -43,6 +45,8 @@ pub fn tests() {
             kind: Unit,
             run: fn() { AssertionOk },
             timeout_ms: None,
+            before_each_hooks: [],
+            after_each_hooks: [],
           )
         let expected = []
 
@@ -72,6 +76,8 @@ pub fn tests() {
             kind: Unit,
             run: fn() { AssertionFailed(failure) },
             timeout_ms: None,
+            before_each_hooks: [],
+            after_each_hooks: [],
           )
         let expected = Failed
 
@@ -101,6 +107,8 @@ pub fn tests() {
             kind: Unit,
             run: fn() { AssertionFailed(failure) },
             timeout_ms: None,
+            before_each_hooks: [],
+            after_each_hooks: [],
           )
 
         // Act

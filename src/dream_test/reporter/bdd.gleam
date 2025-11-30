@@ -40,17 +40,18 @@
 ////
 //// ## Status Markers
 ////
-//// | Status    | Marker | Meaning                        |
-//// |-----------|--------|--------------------------------|
-//// | Passed    | ✓      | All assertions succeeded       |
-//// | Failed    | ✗      | One or more assertions failed  |
-//// | Skipped   | -      | Test was skipped               |
-//// | Pending   | ~      | Test is a placeholder          |
-//// | TimedOut  | !      | Test exceeded timeout          |
+//// | Status      | Marker | Meaning                        |
+//// |-------------|--------|--------------------------------|
+//// | Passed      | ✓      | All assertions succeeded       |
+//// | Failed      | ✗      | One or more assertions failed  |
+//// | Skipped     | -      | Test was skipped               |
+//// | Pending     | ~      | Test is a placeholder          |
+//// | TimedOut    | !      | Test exceeded timeout          |
+//// | SetupFailed | ⚠      | A setup hook failed            |
 
 import dream_test/types.{
   type AssertionFailure, type Status, type TestResult, EqualityFailure, Failed,
-  Passed, Pending, Skipped, TimedOut,
+  Passed, Pending, SetupFailed, Skipped, TimedOut,
 }
 import gleam/int
 import gleam/list
@@ -231,12 +232,14 @@ fn status_marker(status: Status) -> String {
     Skipped -> "-"
     Pending -> "~"
     TimedOut -> "!"
+    SetupFailed -> "⚠"
   }
 }
 
 fn format_failure_details(result: TestResult, indent_level: Int) -> String {
   case result.status {
     Failed -> format_all_failures(result.failures, indent_level, "")
+    SetupFailed -> format_all_failures(result.failures, indent_level, "")
     _ -> ""
   }
 }
@@ -299,7 +302,8 @@ fn format_summary(results: List(TestResult)) -> String {
   let skipped = count_by_status(results, Skipped)
   let pending = count_by_status(results, Pending)
   let timed_out = count_by_status(results, TimedOut)
-  let passed = total - failed - skipped - pending - timed_out
+  let setup_failed = count_by_status(results, SetupFailed)
+  let passed = total - failed - skipped - pending - timed_out - setup_failed
 
   string.concat([
     "Summary: ",
@@ -309,7 +313,7 @@ fn format_summary(results: List(TestResult)) -> String {
     " failed, ",
     int.to_string(passed),
     " passed",
-    build_summary_suffix(skipped, pending, timed_out),
+    build_summary_suffix(skipped, pending, timed_out, setup_failed),
     "\n",
   ])
 }
@@ -339,12 +343,18 @@ fn increment_if_matches(status: Status, wanted: Status, count: Int) -> Int {
   }
 }
 
-fn build_summary_suffix(skipped: Int, pending: Int, timed_out: Int) -> String {
+fn build_summary_suffix(
+  skipped: Int,
+  pending: Int,
+  timed_out: Int,
+  setup_failed: Int,
+) -> String {
   let parts =
     []
     |> add_summary_part_if_nonzero(skipped, " skipped")
     |> add_summary_part_if_nonzero(pending, " pending")
     |> add_summary_part_if_nonzero(timed_out, " timed out")
+    |> add_summary_part_if_nonzero(setup_failed, " setup failed")
 
   format_summary_parts(parts)
 }

@@ -43,11 +43,37 @@ import gleam/option.{type Option}
 ///
 /// After a test runs, it has one of these statuses:
 ///
-/// - `Passed` - All assertions succeeded
-/// - `Failed` - One or more assertions failed
-/// - `Skipped` - Test was marked to skip (not yet implemented)
-/// - `Pending` - Test is a placeholder (not yet implemented)
-/// - `TimedOut` - Test exceeded its timeout and was killed
+/// | Status        | Meaning                                           |
+/// |---------------|---------------------------------------------------|
+/// | `Passed`      | All assertions succeeded                          |
+/// | `Failed`      | One or more assertions failed                     |
+/// | `Skipped`     | Test was marked to skip (not yet implemented)     |
+/// | `Pending`     | Test is a placeholder (not yet implemented)       |
+/// | `TimedOut`    | Test exceeded its timeout and was killed          |
+/// | `SetupFailed` | A lifecycle hook failed; test never ran           |
+///
+/// ## SetupFailed Explained
+///
+/// When a `before_each` or `before_all` hook returns `AssertionFailed`,
+/// the test (or all tests in the group) are marked as `SetupFailed`.
+/// This indicates the test didn't fail on its own—it never had a chance
+/// to run because its setup failed.
+///
+/// ```gleam
+/// describe("Database", [
+///   before_all(fn() {
+///     case connect_to_database() {
+///       Ok(_) -> AssertionOk
+///       Error(_) -> AssertionFailed(...)  // All tests become SetupFailed
+///     }
+///   }),
+///   it("test1", fn() { ... }),  // Never runs → SetupFailed
+///   it("test2", fn() { ... }),  // Never runs → SetupFailed
+/// ])
+/// ```
+///
+/// The `failures` field in `TestResult` will contain the hook's failure
+/// details, so you can see what went wrong.
 ///
 pub type Status {
   Passed
@@ -55,6 +81,7 @@ pub type Status {
   Skipped
   Pending
   TimedOut
+  SetupFailed
 }
 
 /// The kind/category of a test.
@@ -277,6 +304,8 @@ pub type TestResult {
 /// - `kind` - Type of test
 /// - `run` - The test function to execute
 /// - `timeout_ms` - Optional per-test timeout override
+/// - `before_each_hooks` - Hooks to run before the test (outer-to-inner order)
+/// - `after_each_hooks` - Hooks to run after the test (inner-to-outer order)
 ///
 pub type SingleTestConfig {
   SingleTestConfig(
@@ -288,6 +317,10 @@ pub type SingleTestConfig {
     /// Optional per-test timeout override in milliseconds.
     /// If None, uses the runner's default timeout.
     timeout_ms: Option(Int),
+    /// Hooks to run before the test, in outer-to-inner order.
+    before_each_hooks: List(fn() -> AssertionResult),
+    /// Hooks to run after the test, in inner-to-outer order.
+    after_each_hooks: List(fn() -> AssertionResult),
   )
 }
 
@@ -297,6 +330,104 @@ pub type SingleTestConfig {
 ///
 pub type TestCase {
   TestCase(SingleTestConfig)
+}
+
+/// A structured test suite preserving group hierarchy.
+///
+/// Unlike a flat `List(TestCase)`, a `TestSuite` maintains the tree structure
+/// of your `describe` blocks. This enables `before_all`/`after_all` hooks,
+/// which need to know where groups begin and end.
+///
+/// ## When You Need This
+///
+/// Most tests don't need `TestSuite`. Use it when you have:
+///
+/// - Expensive setup you want to share across tests (database servers, etc.)
+/// - Resources that should be created once and cleaned up once
+/// - Integration tests with external services
+///
+/// ## How It's Structured
+///
+/// ```text
+/// TestSuite("Database tests")
+/// ├── before_all_hooks: [start_db]
+/// ├── items:
+/// │   ├── SuiteTest("creates users")
+/// │   ├── SuiteTest("queries users")
+/// │   └── SuiteGroup(TestSuite("error cases"))
+/// │       ├── before_all_hooks: []
+/// │       ├── items:
+/// │       │   ├── SuiteTest("handles not found")
+/// │       │   └── SuiteTest("handles timeout")
+/// │       └── after_all_hooks: []
+/// └── after_all_hooks: [stop_db]
+/// ```
+///
+/// ## Creating a TestSuite
+///
+/// Don't construct this directly. Use `to_test_suite` from the unit module:
+///
+/// ```gleam
+/// import dream_test/unit.{describe, it, before_all, to_test_suite}
+///
+/// describe("My tests", [
+///   before_all(fn() { setup(); AssertionOk }),
+///   it("test one", fn() { ... }),
+/// ])
+/// |> to_test_suite("my_module_test")
+/// ```
+///
+/// ## Executing a TestSuite
+///
+/// Use `run_suite` or `run_suite_with_config`:
+///
+/// ```gleam
+/// suite
+/// |> run_suite()
+/// |> report(io.print)
+/// ```
+///
+/// ## Fields
+///
+/// - `name` - The group's name (from `describe`)
+/// - `full_name` - Complete path including parent groups (for reporting)
+/// - `before_all_hooks` - Run once before any test in this group
+/// - `after_all_hooks` - Run once after all tests in this group complete
+/// - `items` - The tests and nested groups contained in this suite
+///
+pub type TestSuite {
+  TestSuite(
+    name: String,
+    full_name: List(String),
+    before_all_hooks: List(fn() -> AssertionResult),
+    after_all_hooks: List(fn() -> AssertionResult),
+    items: List(TestSuiteItem),
+  )
+}
+
+/// An item within a test suite: either a single test or a nested group.
+///
+/// This type enables the recursive structure of `TestSuite`. You won't
+/// typically construct these directly—they're created by `to_test_suite`.
+///
+/// ## Variants
+///
+/// - `SuiteTest(TestCase)` - A single test to execute
+/// - `SuiteGroup(TestSuite)` - A nested group with its own hooks
+///
+/// ## Execution Order
+///
+/// When a suite is executed, items are processed in order:
+///
+/// 1. All `SuiteTest` items run in parallel (up to `max_concurrency`)
+/// 2. `SuiteGroup` items are processed after tests complete
+/// 3. Each nested group runs its own `before_all`/`after_all` hooks
+///
+pub type TestSuiteItem {
+  /// A single test case to run.
+  SuiteTest(TestCase)
+  /// A nested group with its own hooks.
+  SuiteGroup(TestSuite)
 }
 
 /// Derive a Status from a list of failures.
