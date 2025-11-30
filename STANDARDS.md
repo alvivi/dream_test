@@ -1,25 +1,33 @@
-# dream_test Coding Standards
+# Coding Standards
 
-This document captures the core coding standards for the `dream_test` project. These are intended to keep the codebase predictable, debuggable, and easy to evolve over time.
+This document defines the coding conventions for `dream_test`. These are **project-specific rules**, not general Gleam guidelines—they may be stricter than typical Gleam style.
 
-The standards below are **project conventions**, not general Gleam rules. They may be stricter than typical Gleam style, but they align with how we want to reason about this framework.
+**Goals**: clarity, explicitness, debuggability.
+
+---
+
+## Quick Reference
+
+| Rule                                                                | Summary                                       |
+| ------------------------------------------------------------------- | --------------------------------------------- |
+| [No nested `case`](#1-no-nested-case-expressions)                   | One `case` per function; extract helpers      |
+| [No closures](#2-no-closures)                                       | All functions defined at module level         |
+| [No anonymous functions](#3-no-anonymous-functions-in-library-code) | Every function gets a name                    |
+| [No abbreviations](#4-no-abbreviated-identifiers)                   | `context` not `ctx`, `failure` not `f`        |
+| [Reserved words](#5-directory-and-module-naming)                    | Don't use `assert` in paths                   |
+| [Pipes over builders](#6-pipes-over-fluent-builders)                | Return values, not functions                  |
+| [Import style](#7-import-style)                                     | Unqualified for DSL, qualified for namespaces |
+| [Config records](#8-config-records-for-multi-parameter-functions)   | Named fields over long parameter lists        |
+
+---
 
 ## 1. No Nested `case` Expressions
 
-**Rule**
+**Rule**: Do not nest `case` expressions. Extract inner logic into named helper functions.
 
-- Do not nest `case` expressions inside each other.
-- Prefer a single `case` per function or per small helper, and factor nested logic into pure helper functions.
+**Why**: Nested pattern matches are hard to read, test, and debug. Named helpers make control flow explicit and improve stack traces.
 
-**Rationale**
-
-- Deeply nested pattern matches become hard to read, reason about, and test.
-- Flattening logic into named helpers:
-  - Makes control flow explicit.
-  - Encourages small, composable functions.
-  - Improves error messages and stack traces when something goes wrong.
-
-**Example (discouraged)**
+❌ **Don't**
 
 ```gleam
 case value1 {
@@ -32,7 +40,7 @@ case value1 {
 }
 ```
 
-**Example (preferred)**
+✅ **Do**
 
 ```gleam
 pub fn handle(value1, value2) {
@@ -50,32 +58,23 @@ fn handle_with_value(x, value2) {
 }
 ```
 
+---
+
 ## 2. No Closures
 
-**Rule**
+**Rule**: Do not use closures (functions capturing outer scope variables) in library code. Define all functions at the module level with explicit parameters.
 
-- Do not use closures (functions that capture variables from an outer scope) in the library code.
-- All functions should be defined at the module level with explicit parameters.
+**Why**: Closures hide dependencies. Explicit parameters make data flow obvious and simplify testing.
 
-**Rationale**
-
-- Closures hide dependencies in captured scope, making functions harder to test and reason about.
-- Explicit parameters:
-  - Make data and dependencies obvious at call sites.
-  - Avoid surprises when refactoring or moving code.
-  - Align with a service/context style where all dependencies are passed in.
-
-**Example (discouraged)**
+❌ **Don't**
 
 ```gleam
 fn make_checker(limit) {
-  fn(value) {
-    value < limit
-  }
+  fn(value) { value < limit }
 }
 ```
 
-**Example (preferred)**
+✅ **Do**
 
 ```gleam
 pub fn is_less_than(limit, value) {
@@ -83,63 +82,58 @@ pub fn is_less_than(limit, value) {
 }
 ```
 
-If you need to “configure” behavior, prefer a small data type or explicit parameter rather than a closure.
+If you need configurable behavior, use a data type or explicit parameter—not a closure.
+
+---
 
 ## 3. No Anonymous Functions in Library Code
 
-**Rule**
+**Rule**: Every function must have a name and be defined at the top level. No inline `fn(...) { ... }` in library modules.
 
-- Do not use anonymous functions (`fn(...) { ... }`) in library modules.
-- Every function should have a **name** and be defined at the top level of its module.
-- Anonymous functions may be acceptable in very small bootstrap or script code, but should generally be avoided there too.
+**Why**: Named functions appear in stack traces, are searchable, and encourage reuse. Anonymous functions encourage "inline cleverness."
 
-**Rationale**
-
-- Named functions:
-  - Show up clearly in stack traces and logs.
-  - Are easier to search for and reuse.
-  - Encourage reusability and testing in isolation.
-- Anonymous functions often encourage “inline cleverness” rather than clear structure.
-
-**Example (discouraged)**
+❌ **Don't**
 
 ```gleam
 describe("math", [
-  it("adds numbers", fn(context) {
-    1 + 2
-  }),
+  it("adds numbers", fn() { 1 + 2 }),
 ])
 ```
 
-**Example (preferred)**
+✅ **Do**
 
 ```gleam
 pub fn math_tests() {
   describe("math", [
-    it("adds numbers", math_adds_numbers),
+    it("adds numbers", adds_numbers_test),
   ])
 }
 
-fn math_adds_numbers(context) {
+fn adds_numbers_test() {
   1 + 2
 }
 ```
 
-Even when a function is used in only one place, giving it a name improves clarity and makes it easier to expand later.
+**Exception**: Test files may use anonymous functions for simple inline test bodies (as shown in the README examples). Library code (under `src/`) must not.
 
-## 4. No Abbreviated Identifiers for Core Concepts
+---
 
-**Rule**
+## 4. No Abbreviated Identifiers
 
-- Do not abbreviate important identifiers like `context`, `failure`, `result`, etc.
-- Use full, descriptive names instead of short forms like `ctx`, `res`, `f`, etc.
+**Rule**: Use full, descriptive names for important identifiers.
 
-**Rationale**
+**Why**: Descriptive names reduce cognitive load. They help future readers understand code without jumping around.
 
-- Descriptive names reduce cognitive load when reading code.
-- They help new contributors and future-you understand what a value represents without jumping around the file.
+| ❌ Don't | ✅ Do     |
+| -------- | --------- |
+| `ctx`    | `context` |
+| `res`    | `result`  |
+| `f`      | `failure` |
+| `cfg`    | `config`  |
+| `msg`    | `message` |
+| `val`    | `value`   |
 
-**Example (discouraged)**
+❌ **Don't**
 
 ```gleam
 pub fn add_failure(ctx, f) {
@@ -147,7 +141,7 @@ pub fn add_failure(ctx, f) {
 }
 ```
 
-**Example (preferred)**
+✅ **Do**
 
 ```gleam
 pub fn add_failure(context, failure) {
@@ -155,46 +149,39 @@ pub fn add_failure(context, failure) {
 }
 ```
 
+---
+
 ## 5. Directory and Module Naming
 
-**Rule**
+**Rule**: Do not use reserved words in directory or module names.
 
-- Do not use reserved words (like `assert`) in directory or module names.
-- Prefer clear, descriptive module paths such as:
-  - `dream_test/context`
-  - `dream_test/assertions/should`
-  - `dream_test/types`
-  - `dream_test/runner`
-  - `dream_test/unit`
-  - `dream_test/bootstrap/assertions`
+**Why**: Reserved words cause confusing syntax errors.
 
-**Rationale**
+| ❌ Avoid            | ✅ Use instead          |
+| ------------------- | ----------------------- |
+| `dream_test/assert` | `dream_test/assertions` |
+| `dream_test/type`   | `dream_test/types`      |
 
-- Avoiding reserved words prevents confusing syntax errors.
-- Consistent naming (e.g. `bootstrap_` prefix) keeps related modules grouped and discoverable.
+**Module path conventions**:
+
+```
+dream_test/context         # Per-test state
+dream_test/assertions/should  # Assertion API
+dream_test/types           # Shared data types
+dream_test/runner          # Test execution
+dream_test/unit            # describe/it DSL
+dream_test/reporter/bdd    # Output formatting
+```
+
+---
 
 ## 6. Pipes Over Fluent Builders
 
-**Rule**
+**Rule**: Functions should take concrete arguments and return values—not return other functions for chaining.
 
-- Prefer simple pipe-first function usage over fluent/builder-style APIs.
-- Functions should take concrete arguments and return values, not return other functions for chaining.
+**Why**: Pipe-first code is idiomatic Gleam. Avoiding currying keeps APIs straightforward.
 
-**Rationale**
-
-- Pipe-first Gleam code is easier to read and aligns with the language’s idioms.
-- Avoiding currying and fluent builders keeps APIs straightforward and debuggable.
-
-**Example (preferred)**
-
-```gleam
-value
-|> should()
-|> equal(expected)
-|> or_fail_with("message")
-```
-
-**Discouraged**
+❌ **Don't** (fluent/curried)
 
 ```gleam
 value
@@ -202,65 +189,71 @@ value
 |> or_fail_with("message")
 ```
 
-## 7. Import Style for Piped Helpers
-
-**Rule**
-
-- In Gleam, when you import specific values from a module using `{...}`, the module name itself is also brought into scope.
-- - For example, `import some/example/module_name.{do_something}` imports both `module_name` and `do_something`.
-- Use **qualified imports** for primary namespaces (e.g. `should.equal`, `gherkin.define_step`).
-- Use **unqualified imports** for small, piped helpers that act on a value or context, such as `or_fail_with`.
-- Use **unqualified imports** for core types when the module name does not add clarity.
-  - Prefer the explicit type-import syntax, for example:
-    - `import dream_test/context.{type TestContext, add_failure}`
-    - Then use `TestContext` and `add_failure` directly in the module.
-- This means a typical test file will:
-  - Start assertions with `should()` to begin a chain.
-  - Use matchers like `equal()`, `be_some()`, etc. imported unqualified.
-  - Pipe into `or_fail_with` imported unqualified for readability.
-
-**Rationale**
-
-- Keeping `should.equal` qualified makes the origin of the main assertion clear.
-- Dropping the module prefix for piped, context-transforming helpers improves readability and reduces visual noise.
-- This mirrors how many frameworks distinguish between core namespaces and small utility functions.
-
-**Example (preferred)**
+✅ **Do** (pipe-first)
 
 ```gleam
-import dream_test/assertions/should.{equal, or_fail_with, should}
-
 value
 |> should()
 |> equal(expected)
 |> or_fail_with("message")
 ```
 
-**Discouraged**
+---
+
+## 7. Import Style
+
+**Rule**: Use unqualified imports for DSL functions and piped helpers. Use qualified references when the namespace adds clarity.
+
+**Why**: `should()`, `equal()`, `or_fail_with()` read better unqualified in pipes. Module prefixes add noise for frequently-used functions.
+
+### Importing values
 
 ```gleam
+// ✅ Good: Unqualified for pipe-friendly DSL
+import dream_test/unit.{describe, it}
+import dream_test/assertions/should.{should, equal, or_fail_with}
+
+// ❌ Bad: Redundant alias
 import dream_test/assertions/should as should
-
-value
-|> should.should()
-|> should.equal(expected)
-|> should.or_fail_with("message")
 ```
 
-## 8. Named Arguments & Config Records
+### Importing types
 
-**Rule**
+Use the `type` keyword to import types (not constructors):
 
-- When a function conceptually has many parameters (especially of similar types), prefer a **config record** with named fields over a long positional parameter list.
-- For simpler functions with only one or two parameters, positional arguments are acceptable.
+```gleam
+// ✅ Good: Explicit type import
+import dream_test/types.{type TestResult, type Status}
 
-**Rationale**
+// ❌ Bad: This imports constructors, not types
+import dream_test/types.{TestResult}
+```
 
-- Named fields on a config record make construction sites self-documenting.
-- They reduce errors from argument reordering and make refactors safer.
-- They are particularly important in a test framework, where functions often accept many configuration options.
+### Mixed imports
 
-**Example (preferred)**
+You can import both types and values:
+
+```gleam
+import dream_test/context.{type TestContext, add_failure}
+```
+
+This imports `TestContext` as a type and `add_failure` as a function.
+
+---
+
+## 8. Config Records for Multi-Parameter Functions
+
+**Rule**: When a function has many parameters (especially of similar types), use a config record with named fields instead of a long positional parameter list.
+
+**Why**: Named fields are self-documenting. They prevent argument reordering mistakes and make refactoring safer.
+
+❌ **Don't**
+
+```gleam
+run_single_test("passing test", full_name, tags, types.Unit, passing_test)
+```
+
+✅ **Do**
 
 ```gleam
 let config = SingleTestConfig(
@@ -274,12 +267,45 @@ let config = SingleTestConfig(
 run_single_test(config)
 ```
 
-**Discouraged**
-
-```gleam
-run_single_test("passing test", full_name, tags, types.Unit, passing_test)
-```
+**Threshold**: If a function has 3+ parameters, or 2+ parameters of the same type, consider a config record.
 
 ---
 
-These standards are living guidelines. As the project evolves, we may refine them, but any changes should maintain the same goals: clarity, explicitness, and ease of reasoning about the behavior of the test framework.
+## Gleam-Specific Notes
+
+### Pattern matching blocks
+
+In `case` expressions, multi-expression branches need curly braces:
+
+```gleam
+case node {
+  ItTest(name, run) ->
+    build_it_test_case(...)
+
+  DescribeGroup(name, children) -> {
+    let new_prefix = list.append(name_prefix, [name])
+    to_test_cases_from_list(module_name, new_prefix, children, accumulated)
+  }
+}
+```
+
+### List operations
+
+Use `list.append(left, right)` to combine lists. Gleam's `gleam/list` does not have `concat` in the way some languages do.
+
+### Labeled arguments
+
+Gleam supports labeled arguments only when the function is _defined_ with labeled parameters. You cannot add labels at a call site if the function was defined with positional parameters.
+
+---
+
+## Summary
+
+These standards exist to make `dream_test` predictable and debuggable. When in doubt:
+
+1. **Be explicit** — pass data, don't capture it
+2. **Be flat** — extract helpers, don't nest
+3. **Be descriptive** — name things clearly
+4. **Be consistent** — follow existing patterns
+
+Standards evolve. If you think a rule should change, open an issue to discuss.

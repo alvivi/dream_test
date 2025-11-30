@@ -1,3 +1,53 @@
+//// BDD-style test reporter for dream_test.
+////
+//// This reporter formats test results in a hierarchical, spec-like format
+//// that mirrors your `describe`/`it` structure. It's inspired by RSpec, Jest,
+//// and Mocha.
+////
+//// ## Example Output
+////
+//// ```text
+//// Calculator
+////   add
+////     ✓ adds positive numbers
+////     ✓ handles zero
+////   subtract
+////     ✓ subtracts positive numbers
+////     ✗ handles negative results
+////       equal
+////         Message: Should handle negative subtraction
+////         Expected: -5
+////         Actual:   5
+////
+//// Summary: 4 run, 1 failed, 3 passed
+//// ```
+////
+//// ## Usage
+////
+//// ```gleam
+//// import dream_test/unit.{describe, it, to_test_cases}
+//// import dream_test/runner.{run_all}
+//// import dream_test/reporter/bdd.{report}
+//// import gleam/io
+////
+//// pub fn main() {
+////   tests()
+////   |> to_test_cases("my_test")
+////   |> run_all()
+////   |> report(io.print)
+//// }
+//// ```
+////
+//// ## Status Markers
+////
+//// | Status    | Marker | Meaning                        |
+//// |-----------|--------|--------------------------------|
+//// | Passed    | ✓      | All assertions succeeded       |
+//// | Failed    | ✗      | One or more assertions failed  |
+//// | Skipped   | -      | Test was skipped               |
+//// | Pending   | ~      | Test is a placeholder          |
+//// | TimedOut  | !      | Test exceeded timeout          |
+
 import dream_test/types.{
   type AssertionFailure, type Status, type TestResult, EqualityFailure, Failed,
   Passed, Pending, Skipped, TimedOut,
@@ -7,23 +57,53 @@ import gleam/list
 import gleam/option.{Some}
 import gleam/string
 
-/// BDD-style reporter for dream_test.
+/// Format test results as a BDD-style report string.
 ///
-/// This reporter prints grouped, spec-like output based on TestResult values.
-/// It works for both unit tests (from `describe` / `it`) and, later,
-/// Gherkin scenarios (via TestKind.GherkinScenario).
+/// Returns the complete report including:
+/// - Hierarchical test results with status markers
+/// - Failure details with messages and diffs
+/// - Summary line with counts
 ///
-/// `format` returns the full report as a String, which is convenient for tests
-/// or for composing with other output backends.
+/// Use this when you need the report as a string (e.g., for testing the
+/// reporter itself or writing to a file).
 ///
-/// `report` applies a user-provided writer function to the formatted String, so
-/// the caller decides whether to print to stdout, log, buffer, etc.
+/// ## Example
+///
+/// ```gleam
+/// let report_string = format(results)
+/// file.write("test-results.txt", report_string)
+/// ```
+///
 pub fn format(results: List(TestResult)) -> String {
   let formatted_results = format_all_results(results, [], "")
   let summary_text = format_summary(results)
   string.concat([formatted_results, "\n", summary_text])
 }
 
+/// Print test results using a provided writer function.
+///
+/// This is the main entry point for most test runs. The writer function
+/// receives the formatted report string and can print it, log it, or
+/// handle it however needed.
+///
+/// ## Example
+///
+/// ```gleam
+/// // Print to stdout
+/// results |> report(io.print)
+///
+/// // Print each line separately (for flushing)
+/// results |> report(io.println)
+///
+/// // Custom handling
+/// results |> report(fn(s) { logger.info(s) })
+/// ```
+///
+/// ## Parameters
+///
+/// - `results` - List of test results from the runner
+/// - `write` - Function that handles the formatted output string
+///
 pub fn report(results: List(TestResult), write: fn(String) -> Nil) {
   write(format(results))
 }
@@ -60,11 +140,27 @@ fn count_common_prefix(
 ) -> Int {
   case previous, current {
     [prev_head, ..prev_rest], [curr_head, ..curr_rest] ->
-      case prev_head == curr_head {
-        True -> count_common_prefix(prev_rest, curr_rest, depth + 1)
-        False -> depth
-      }
+      count_common_prefix_check(
+        prev_head,
+        curr_head,
+        prev_rest,
+        curr_rest,
+        depth,
+      )
     _, _ -> depth
+  }
+}
+
+fn count_common_prefix_check(
+  prev_head: String,
+  curr_head: String,
+  prev_rest: List(String),
+  curr_rest: List(String),
+  depth: Int,
+) -> Int {
+  case prev_head == curr_head {
+    True -> count_common_prefix(prev_rest, curr_rest, depth + 1)
+    False -> depth
   }
 }
 

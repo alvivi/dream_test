@@ -1,34 +1,254 @@
+//// Test runner for dream_test.
+////
+//// This module executes test cases and produces results. Tests run in isolated
+//// BEAM processes by default, providing:
+////
+//// - **Crash isolation** - A panicking test doesn't crash the runner
+//// - **Timeout protection** - Hanging tests are killed after a timeout
+//// - **Parallel execution** - Tests run concurrently for speed
+////
+//// ## Basic Usage
+////
+//// ```gleam
+//// import dream_test/unit.{describe, it, to_test_cases}
+//// import dream_test/runner.{run_all}
+//// import dream_test/reporter/bdd.{report}
+//// import gleam/io
+////
+//// pub fn main() {
+////   tests()
+////   |> to_test_cases("my_test")
+////   |> run_all()
+////   |> report(io.print)
+//// }
+//// ```
+////
+//// ## Execution Modes
+////
+//// | Function               | Isolation | Parallel | Timeout | Use Case                    |
+//// |------------------------|-----------|----------|---------|------------------------------|
+//// | `run_all`              | ✓         | ✓ (4)    | 5s      | Default for most tests       |
+//// | `run_all_with_config`  | ✓         | Custom   | Custom  | Custom concurrency/timeout   |
+//// | `run_all_sequential`   | ✗         | ✗        | ✗       | Debugging, simple tests      |
+////
+//// ## Custom Configuration
+////
+//// ```gleam
+//// import dream_test/runner.{run_all_with_config, RunnerConfig}
+////
+//// // High concurrency for fast tests
+//// let fast_config = RunnerConfig(
+////   max_concurrency: 16,
+////   default_timeout_ms: 1000,
+//// )
+////
+//// // Sequential with long timeout for integration tests  
+//// let integration_config = RunnerConfig(
+////   max_concurrency: 1,
+////   default_timeout_ms: 30_000,
+//// )
+////
+//// test_cases
+//// |> run_all_with_config(fast_config)
+//// |> report(io.print)
+//// ```
+
+import dream_test/parallel
+import dream_test/types.{
+  type SingleTestConfig, type TestCase, type TestResult, AssertionFailed,
+  AssertionOk, TestCase, TestResult, status_from_failures,
+}
 import gleam/list
-import dream_test/types.{type TestKind, type TestResult, type AssertionResult, AssertionOk, AssertionFailed, TestResult, status_from_failures}
 
-/// Core runner helpers.
+/// Configuration for test execution.
 ///
-/// This initial version only supports running single test functions that
-/// return an AssertionResult. Timing, hooks, and concurrency will be added later.
-
-pub type SingleTestConfig {
-  SingleTestConfig(
-    name: String,
-    full_name: List(String),
-    tags: List(String),
-    kind: TestKind,
-    run: fn() -> AssertionResult,
+/// Controls how many tests run concurrently and how long each test is allowed
+/// to run before being killed.
+///
+/// ## Fields
+///
+/// - `max_concurrency` - Maximum number of tests running at once. Set to `1`
+///   for sequential execution. Higher values speed up test suites on multi-core
+///   machines but may cause issues if tests share resources.
+///
+/// - `default_timeout_ms` - How long (in milliseconds) a test can run before
+///   being killed. Protects against infinite loops and hanging operations.
+///
+/// ## Examples
+///
+/// ```gleam
+/// // Fast parallel execution
+/// RunnerConfig(max_concurrency: 8, default_timeout_ms: 2000)
+///
+/// // Sequential execution for debugging
+/// RunnerConfig(max_concurrency: 1, default_timeout_ms: 5000)
+///
+/// // Long timeout for integration tests
+/// RunnerConfig(max_concurrency: 4, default_timeout_ms: 60_000)
+/// ```
+///
+pub type RunnerConfig {
+  RunnerConfig(
+    /// Maximum number of tests to run concurrently.
+    /// Set to 1 for sequential execution.
+    max_concurrency: Int,
+    /// Default timeout in milliseconds for each test.
+    default_timeout_ms: Int,
   )
 }
 
-/// A concrete test case, wrapping a SingleTestConfig.
-pub type TestCase {
-  TestCase(SingleTestConfig)
+/// Default runner configuration.
+///
+/// Returns a configuration with:
+/// - 4 concurrent tests
+/// - 5 second timeout per test
+///
+/// This is suitable for most unit test suites.
+///
+/// ## Example
+///
+/// ```gleam
+/// let config = default_config()
+/// // RunnerConfig(max_concurrency: 4, default_timeout_ms: 5000)
+/// ```
+///
+pub fn default_config() -> RunnerConfig {
+  RunnerConfig(max_concurrency: 4, default_timeout_ms: 5000)
 }
 
+/// Configuration for sequential execution.
+///
+/// Returns a configuration with:
+/// - 1 concurrent test (sequential)
+/// - 5 second timeout per test
+///
+/// Use this when debugging test failures or when tests must not run in parallel.
+///
+/// ## Example
+///
+/// ```gleam
+/// test_cases
+/// |> run_all_with_config(sequential_config())
+/// |> report(io.print)
+/// ```
+///
+pub fn sequential_config() -> RunnerConfig {
+  RunnerConfig(max_concurrency: 1, default_timeout_ms: 5000)
+}
+
+/// Run all tests with custom configuration.
+///
+/// Each test runs in an isolated BEAM process. If a test panics, it doesn't
+/// affect other tests. If a test exceeds the timeout, it's killed and marked
+/// as `TimedOut`.
+///
+/// Results are returned in the same order as the input tests, regardless of
+/// which tests finish first.
+///
+/// ## Example
+///
+/// ```gleam
+/// let config = RunnerConfig(max_concurrency: 8, default_timeout_ms: 10_000)
+///
+/// tests()
+/// |> to_test_cases("my_test")
+/// |> run_all_with_config(config)
+/// |> report(io.print)
+/// ```
+///
+/// ## Parameters
+///
+/// - `config` - Execution settings (concurrency, timeout)
+/// - `test_cases` - List of test cases to run
+///
+/// ## Returns
+///
+/// List of `TestResult` in the same order as the input tests.
+///
+pub fn run_all_with_config(
+  config: RunnerConfig,
+  test_cases: List(TestCase),
+) -> List(TestResult) {
+  let parallel_config =
+    parallel.ParallelConfig(
+      max_concurrency: config.max_concurrency,
+      default_timeout_ms: config.default_timeout_ms,
+    )
+  parallel.run_parallel(parallel_config, test_cases)
+}
+
+/// Run all tests with default configuration.
+///
+/// This is the recommended way to run tests. Uses `default_config()`:
+/// - 4 concurrent tests
+/// - 5 second timeout per test
+/// - Full process isolation
+///
+/// ## Example
+///
+/// ```gleam
+/// pub fn main() {
+////   tests()
+////   |> to_test_cases("my_test")
+////   |> run_all()
+////   |> report(io.print)
+//// }
+/// ```
+///
+pub fn run_all(test_cases: List(TestCase)) -> List(TestResult) {
+  run_all_with_config(default_config(), test_cases)
+}
+
+/// Run all tests sequentially without process isolation.
+///
+/// Tests run one at a time in the main process. No timeout protection.
+/// Use this for:
+/// - Debugging test failures
+/// - When process isolation causes issues
+/// - Very simple test suites
+///
+/// **Warning:** A crashing test will crash the entire test run.
+///
+/// ## Example
+///
+/// ```gleam
+/// // For debugging a specific failure
+/// test_cases
+/// |> run_all_sequential()
+/// |> report(io.print)
+/// ```
+///
+pub fn run_all_sequential(test_cases: List(TestCase)) -> List(TestResult) {
+  run_all_from_list(test_cases, [])
+}
+
+/// Run a single test directly without isolation.
+///
+/// Executes the test function and returns a `TestResult`. No process isolation
+/// or timeout protection. Useful for debugging individual tests.
+///
+/// ## Example
+///
+/// ```gleam
+/// let config = SingleTestConfig(
+///   name: "my test",
+///   full_name: ["suite", "my test"],
+///   tags: [],
+///   kind: Unit,
+///   run: fn() { ... },
+///   timeout_ms: None,
+/// )
+///
+/// let result = run_single_test(config)
+/// ```
+///
 pub fn run_single_test(config: SingleTestConfig) -> TestResult {
   let assertion_result = config.run()
 
-  let failures =
-    case assertion_result {
-      AssertionOk -> []
-      AssertionFailed(failure) -> [failure]
-    }
+  let failures = case assertion_result {
+    AssertionOk -> []
+    AssertionFailed(failure) -> [failure]
+  }
 
   let status = status_from_failures(failures)
 
@@ -43,23 +263,22 @@ pub fn run_single_test(config: SingleTestConfig) -> TestResult {
   )
 }
 
+/// Run a single test case directly without isolation.
+///
+/// Convenience wrapper around `run_single_test` that unwraps the `TestCase`.
+///
 pub fn run_test_case(test_case: TestCase) -> TestResult {
   case test_case {
-    TestCase(config) ->
-      run_single_test(config)
+    TestCase(config) -> run_single_test(config)
   }
 }
 
-pub fn run_all(test_cases: List(TestCase)) -> List(TestResult) {
-  run_all_from_list(test_cases, [])
-}
-
-fn run_all_from_list(remaining: List(TestCase),
+fn run_all_from_list(
+  remaining: List(TestCase),
   accumulated: List(TestResult),
 ) -> List(TestResult) {
   case remaining {
-    [] ->
-      list.reverse(accumulated)
+    [] -> list.reverse(accumulated)
 
     [head, ..tail] -> {
       let result = run_test_case(head)
@@ -67,3 +286,4 @@ fn run_all_from_list(remaining: List(TestCase),
     }
   }
 }
+

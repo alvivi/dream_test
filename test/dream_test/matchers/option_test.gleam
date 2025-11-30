@@ -1,4 +1,6 @@
-import dream_test/assertions/should.{be_none, be_some, equal, fail_with, or_fail_with, should}
+import dream_test/assertions/should.{
+  be_none, be_some, equal, fail_with, or_fail_with, should,
+}
 import dream_test/types.{AssertionOk, MatchFailed, MatchOk}
 import dream_test/unit.{describe, it}
 import gleam/option.{None, Some}
@@ -55,8 +57,7 @@ pub fn tests() {
 
         case result {
           MatchOk(_) -> AssertionOk
-          MatchFailed(_) ->
-            fail_with("chaining be_some |> equal should pass")
+          MatchFailed(_) -> fail_with("chaining be_some |> equal should pass")
         }
       }),
       it("fails chain if inner value differs", fn() {
@@ -69,9 +70,7 @@ pub fn tests() {
         case result {
           MatchFailed(_) -> AssertionOk
           MatchOk(_) ->
-            fail_with(
-              "chaining be_some |> equal should fail if value differs",
-            )
+            fail_with("chaining be_some |> equal should fail if value differs")
         }
       }),
       it("fails chain if value is None", fn() {

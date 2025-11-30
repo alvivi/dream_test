@@ -57,64 +57,93 @@ User authentication
 dream_test = "~> 0.1"
 ```
 
+---
+
 ## Why dream_test?
 
-**Gleam-native.** Pipe-first assertions that feel natural. No macros, no reflection, no magic.
-
-**Familiar syntax.** If you've used Jest, RSpec, or Mocha, you already know how to write tests.
-
-**Type-safe.** Your tests are just Gleam code. The compiler catches mistakes before you run anything.
-
-**Self-hosting.** dream_test tests itself. We eat our own cooking.
+| Feature                 | What you get                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| **Parallel by default** | Tests run concurrently across all cores—100 tests finish ~4x faster on 4 cores |
+| **Crash-proof**         | Each test runs in an isolated BEAM process; one crash doesn't kill the suite   |
+| **Timeout-protected**   | Hanging tests get killed automatically; no more stuck CI pipelines             |
+| **Gleam-native**        | Pipe-first assertions that feel natural; no macros, no reflection, no magic    |
+| **Familiar syntax**     | If you've used Jest, RSpec, or Mocha, you already know the basics              |
+| **Type-safe**           | Your tests are just Gleam code; the compiler catches mistakes early            |
+| **Self-hosting**        | dream_test tests itself; we eat our own cooking                                |
 
 ---
 
-## Writing Tests
+## Quick Start
 
-### Structure with `describe` and `it`
-
-Group related tests with `describe`. Define individual cases with `it`.
+### 1. Write tests with `describe` and `it`
 
 ```gleam
-import dream_test/unit.{describe, it}
+// test/my_app_test.gleam
+import dream_test/unit.{describe, it, to_test_cases}
+import dream_test/runner.{run_all}
+import dream_test/reporter/bdd.{report}
+import dream_test/assertions/should.{should, equal, be_some, or_fail_with}
+import gleam/io
+
+pub fn main() {
+  tests()
+  |> to_test_cases("my_app_test")
+  |> run_all()
+  |> report(io.println)
+}
 
 pub fn tests() {
-  describe("String", [
-    describe("trim", [
-      it("removes leading whitespace", fn() { ... }),
-      it("removes trailing whitespace", fn() { ... }),
-    ]),
+  describe("String utilities", [
+    it("trims whitespace", fn() {
+      "  hello  "
+      |> string.trim()
+      |> should()
+      |> equal("hello")
+      |> or_fail_with("Should remove surrounding whitespace")
+    }),
 
-    describe("split", [
-      it("splits on delimiter", fn() { ... }),
-      it("returns original when delimiter not found", fn() { ... }),
-    ]),
+    it("finds substrings", fn() {
+      "hello world"
+      |> string.find("world")
+      |> should()
+      |> be_some()
+      |> or_fail_with("Should find 'world' in string")
+    }),
   ])
 }
 ```
 
-### Assertions with `should`
+### 2. Run with gleam test
 
-Every assertion starts with `should()` and ends with `or_fail_with()`:
-
-```gleam
-import dream_test/assertions/should.{should, equal, or_fail_with}
-
-// The pattern: value |> should() |> matcher() |> or_fail_with("message")
-
-result
-|> should()
-|> equal(42)
-|> or_fail_with("Result should be 42")
+```sh
+gleam test
 ```
 
-### Chaining Matchers
+### 3. See readable output
 
-Matchers can be chained. Each matcher passes its unwrapped value to the next:
+```
+String utilities
+  ✓ trims whitespace
+  ✓ finds substrings
+
+2 tests, 0 failures
+```
+
+---
+
+## The Assertion Pattern
+
+Every assertion follows the same pattern:
 
 ```gleam
-import dream_test/assertions/should.{should, be_some, be_ok, equal, or_fail_with}
+value |> should() |> matcher() |> or_fail_with("message")
+```
 
+### Chaining matchers
+
+Matchers can be chained. Each one passes its unwrapped value to the next:
+
+```gleam
 // Unwrap Some, then check the value
 Some(42)
 |> should()
@@ -130,7 +159,7 @@ Ok("hello")
 |> or_fail_with("Should be Ok with 'hello'")
 ```
 
-### Available Matchers
+### Available matchers
 
 | Category        | Matchers                                                                                    |
 | --------------- | ------------------------------------------------------------------------------------------- |
@@ -142,7 +171,7 @@ Ok("hello")
 | **Comparison**  | `be_greater_than`, `be_less_than`, `be_at_least`, `be_at_most`, `be_between`, `be_in_range` |
 | **String**      | `start_with`, `end_with`, `contain_string`                                                  |
 
-### Explicit Failures
+### Explicit failures
 
 When you need to fail unconditionally:
 
@@ -151,112 +180,93 @@ import dream_test/assertions/should.{fail_with}
 
 case result {
   Ok(_) -> fail_with("Should have returned an error")
-  Error(_) -> ...
+  Error(_) -> handle_expected_error()
 }
 ```
 
 ---
 
-## Running Tests
+## BEAM-Powered Test Isolation
 
-### Basic Setup
+Every test runs in its own BEAM process:
+
+| Feature                | What it means                                                |
+| ---------------------- | ------------------------------------------------------------ |
+| **Crash isolation**    | A `panic` in one test doesn't affect others                  |
+| **Timeout handling**   | Slow tests get killed; suite keeps running                   |
+| **Parallel execution** | Tests run concurrently (configurable)                        |
+| **Automatic cleanup**  | Resources linked to the test process are freed automatically |
 
 ```gleam
-// test/my_app_test.gleam
-import dream_test/unit.{describe, it, to_test_cases}
-import dream_test/runner.{run_all}
-import dream_test/reporter/bdd.{report}
-import gleam/io
+// This test crashes, but others keep running
+it("handles edge case", fn() {
+  panic as "oops"  // Other tests still execute and report
+})
 
-pub fn main() {
-  tests()
-  |> to_test_cases("my_app_test")
-  |> run_all()
-  |> report(io.println)
-}
-
-pub fn tests() {
-  describe("MyApp", [
-    it("works", fn() { ... }),
-  ])
-}
+// This test hangs, but gets killed after timeout
+it("fetches data", fn() {
+  infinite_loop()  // Killed after 5 seconds (default)
+})
 ```
 
-```sh
-gleam test
+### Configuring execution
+
+```gleam
+import dream_test/runner.{run_all_with_config, RunnerConfig}
+
+// Custom settings
+let config = RunnerConfig(
+  max_concurrency: 8,         // Run up to 8 tests at once
+  default_timeout_ms: 10_000, // 10 second timeout per test
+)
+
+test_cases
+|> run_all_with_config(config)
+|> report(io.println)
 ```
 
-### How It Works
+---
 
-1. **Define** tests with `describe`/`it` → returns a test tree
+## How It Works
+
+```
+describe/it  →  to_test_cases  →  run_all  →  report
+   (DSL)         (flatten)       (execute)   (format)
+```
+
+1. **Define** tests with `describe`/`it` → builds a test tree
 2. **Convert** with `to_test_cases` → flattens to runnable cases
-3. **Run** with `run_all` → executes and collects results
-4. **Report** with your choice of reporter → formats output
+3. **Run** with `run_all` → executes in parallel with isolation
+4. **Report** with your choice of formatter → outputs results
 
-No hidden globals. No test discovery magic. You control the flow.
-
----
-
-## Custom Matchers
-
-Matchers are just functions. Write your own:
-
-```gleam
-import dream_test/types.{
-  type MatchResult, AssertionFailure, CustomMatcherFailure,
-  MatchFailed, MatchOk,
-}
-import dream_test/assertions/should.{type MatchResult, MatchOk, MatchFailed}
-import gleam/option.{Some}
-import gleam/int
-
-pub fn be_even(result: MatchResult(Int)) -> MatchResult(Int) {
-  case result {
-    MatchFailed(failure) -> MatchFailed(failure)
-    MatchOk(value) -> {
-      case value % 2 == 0 {
-        True -> MatchOk(value)
-        False -> MatchFailed(AssertionFailure(
-          operator: "be_even",
-          message: "",
-          payload: Some(CustomMatcherFailure(
-            actual: int.to_string(value),
-            description: "expected even number",
-          )),
-        ))
-      }
-    }
-  }
-}
-
-// Usage:
-42 |> should() |> be_even() |> or_fail_with("Should be even")
-```
+No hidden globals. No test discovery magic. You control the entire flow.
 
 ---
 
 ## Documentation
 
-| Document                               | Audience                              |
-| -------------------------------------- | ------------------------------------- |
-| **[INTERFACE.md](INTERFACE.md)**       | Test authors — complete API reference |
-| **[DESIGN.md](DESIGN.md)**             | Contributors — design philosophy      |
-| **[ARCHITECTURE.md](ARCHITECTURE.md)** | Contributors — internal structure     |
-| **[CONTRIBUTING.md](CONTRIBUTING.md)** | Contributors — how to help            |
+| Document                                      | Audience                    |
+| --------------------------------------------- | --------------------------- |
+| **[Hexdocs](https://hexdocs.pm/dream_test/)** | API reference with examples |
+| **[CONTRIBUTING.md](CONTRIBUTING.md)**        | How to contribute           |
+| **[STANDARDS.md](STANDARDS.md)**              | Coding conventions          |
 
 ---
 
 ## Status
 
-**Pre-release** — The API is stabilizing but may change before v1.0.
+**Pre-release** — API is stabilizing but may change before v1.0.
 
-|                            |            |
-| -------------------------- | ---------- |
-| Core DSL (`describe`/`it`) | ✅ Stable  |
-| Assertions (`should.*`)    | ✅ Stable  |
-| BDD Reporter               | ✅ Stable  |
-| Process isolation          | 🚧 Planned |
-| Async tests                | 🚧 Planned |
+| Feature                    | Status    |
+| -------------------------- | --------- |
+| Core DSL (`describe`/`it`) | ✅ Stable |
+| Assertions (`should.*`)    | ✅ Stable |
+| BDD Reporter               | ✅ Stable |
+| Parallel execution         | ✅ Stable |
+| Process isolation          | ✅ Stable |
+| Crash handling             | ✅ Stable |
+| Timeout handling           | ✅ Stable |
+| Polling helpers            | ✅ Stable |
 
 ---
 
@@ -268,13 +278,13 @@ cd dream_test
 make all  # build, test, format
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow and guidelines.
 
 ---
 
 ## License
 
-MIT
+MIT — see [LICENSE.md](LICENSE.md)
 
 ---
 

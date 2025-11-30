@@ -1,8 +1,10 @@
 import dream_test/assertions/should_test
+import dream_test/process_test
 import dream_test/reporter/bdd.{report}
 import dream_test/reporter/bdd_test
 import dream_test/runner.{run_all}
 import dream_test/runner_test
+import dream_test/sandbox_test
 import dream_test/types_test
 import dream_test/unit.{describe, to_test_cases}
 import dream_test/unit_test
@@ -16,6 +18,8 @@ pub fn main() {
       runner_test.tests(),
       unit_test.tests(),
       bdd_test.tests(),
+      sandbox_test.tests(),
+      process_test.tests(),
     ])
 
   let test_cases = to_test_cases("dream_test_test", all_tests)

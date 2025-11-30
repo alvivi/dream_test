@@ -1,85 +1,35 @@
 # Contributing to dream_test
 
-Thank you for your interest in contributing to dream_test! We welcome contributions from the community and appreciate your help in making this framework better.
+Thank you for your interest in contributing! This guide covers everything you need to get started.
 
-## Table of Contents
+---
 
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-- [How to Contribute](#how-to-contribute)
-- [Development Setup](#development-setup)
-- [Development Workflow](#development-workflow)
-- [Code Standards](#code-standards)
-- [Testing](#testing)
-- [Documentation](#documentation)
-- [Pull Request Process](#pull-request-process)
-- [What We're Looking For](#what-were-looking-for)
+## Quick Reference
+
+| Need to know...    | Read...                                   |
+| ------------------ | ----------------------------------------- |
+| API reference      | [Hexdocs](https://hexdocs.pm/dream_test/) |
+| Quick start        | [README.md](README.md)                    |
+| Coding conventions | [STANDARDS.md](STANDARDS.md)              |
+
+---
 
 ## Code of Conduct
 
-This project is part of the Dream ecosystem and adheres to professional, respectful collaboration standards. By participating, you agree to:
+Be respectful. Be inclusive. Focus on what's best for the project. Accept constructive criticism gracefully.
 
-- Be respectful and inclusive
-- Accept constructive criticism gracefully
-- Focus on what's best for the community
-- Show empathy towards other community members
+---
 
 ## Getting Started
 
-Before you begin:
-
-1. **Read the documentation**: Familiarize yourself with [INTERFACE.md](INTERFACE.md), [DESIGN.md](DESIGN.md), and [ARCHITECTURE.md](ARCHITECTURE.md)
-2. **Understand the standards**: Review [STANDARDS.md](STANDARDS.md) for code conventions
-3. **Check existing issues**: See if someone else is already working on your idea
-4. **Start small**: Consider tackling a "good first issue" if you're new to the project
-
-## How to Contribute
-
-### Reporting Bugs
-
-If you find a bug:
-
-1. **Search existing issues** to avoid duplicates
-2. **Create a new issue** with:
-   - Clear, descriptive title
-   - Steps to reproduce the bug
-   - Expected vs actual behavior
-   - Your environment (Gleam version, OS, target platform)
-   - Minimal code example demonstrating the issue
-   - Any relevant error messages or stack traces
-
-### Suggesting Features
-
-We love new ideas! For feature requests:
-
-1. **Check the roadmap** in README.md to see if it's planned
-2. **Open an issue** describing:
-   - The problem you're trying to solve
-   - Your proposed solution
-   - Alternative solutions you've considered
-   - Examples of how it would be used
-   - Impact on existing functionality
-
-### Improving Documentation
-
-Documentation improvements are always welcome:
-
-- Fix typos or unclear wording
-- Add missing examples
-- Improve existing examples
-- Add clarifications based on your experience
-- Update outdated information
-
-## Development Setup
-
 ### Prerequisites
 
-- [Gleam](https://gleam.run/) v1.0.0 or later
+- [Gleam](https://gleam.run/) v1.0.0+
 - Erlang/OTP 26+
 - Git
-- Make (optional, for convenience commands)
+- Make (optional but recommended)
 
-### Initial Setup
+### Setup
 
 ```bash
 # Clone your fork
@@ -89,423 +39,232 @@ cd dream_test
 # Add upstream remote
 git remote add upstream https://github.com/TrustBound/dream_test.git
 
-# Install dependencies and build
-gleam deps download
-gleam build
-
-# Run tests to verify setup
-gleam test
-# or
+# Build and test
 make all
 ```
+
+If everything passes, you're ready to contribute.
+
+---
 
 ## Development Workflow
 
-### 1. Create a Branch
+### 1. Create a branch
 
 ```bash
-# Update your fork
 git checkout main
 git pull upstream main
-
-# Create a feature branch
 git checkout -b feature/your-feature-name
-# or for bug fixes
-git checkout -b fix/bug-description
 ```
 
-### 2. Make Your Changes
+Use `feature/` for new features, `fix/` for bug fixes.
+
+### 2. Make changes
 
 - Write clear, focused commits
-- Follow the code standards (see below)
+- Follow [STANDARDS.md](STANDARDS.md) conventions
 - Add tests for new functionality
-- Update documentation as needed
-- Keep commits atomic and well-described
+- Update docs if the public API changes
 
-### 3. Test Your Changes
+### 3. Test
 
 ```bash
-# Run all tests
-make all
-
-# Or individual steps
-make build    # Compile
-make test     # Run tests
-make format   # Format code
+make all          # Full build + test + format
+make test         # Tests only
+make build        # Compile only
+make format       # Format code
 ```
 
-### 4. Commit Your Changes
+### 4. Commit
 
 ```bash
-# Stage your changes
 git add .
-
-# Commit with a clear message
-git commit -m "Add feature: brief description
-
-More detailed explanation if needed. Reference any related issues
-using #issue-number."
+git commit -m "Add feature: brief description"
 ```
 
-#### Commit Message Guidelines
+**Commit message format:**
 
-- Use present tense ("Add feature" not "Added feature")
-- Use imperative mood ("Move cursor to..." not "Moves cursor to...")
-- First line should be 50 characters or less
-- Add a blank line before detailed explanation
-- Reference issues and pull requests when relevant
-
-Examples:
+- Present tense ("Add" not "Added")
+- Imperative mood ("Move cursor to..." not "Moves cursor to...")
+- First line ≤ 50 characters
+- Reference issues with `#123`
 
 ```
 Add timeout support to test runner
 
-Implements configurable timeouts for individual tests. Tests that
-exceed their timeout are marked as failed with a clear timeout
-message.
+Implements configurable timeouts for individual tests.
+Tests that exceed their timeout are marked as failed.
 
 Closes #123
 ```
 
-### 5. Push and Create Pull Request
+### 5. Push and open PR
 
 ```bash
-# Push to your fork
 git push origin feature/your-feature-name
 ```
 
 Then open a pull request on GitHub.
 
-## Code Standards
+---
 
-### Gleam Conventions
+## Writing Tests
 
-This project follows strict Gleam conventions outlined in [STANDARDS.md](STANDARDS.md). Key points:
+All new functionality must include tests.
 
-#### No Magic
+### Test location
 
-- No closures capturing outer scope in library code
-- No anonymous functions in library modules
-- Every function should be named and top-level
-- Explicit is better than implicit
+Add tests in the appropriate `test/dream_test/` subdirectory matching the source structure.
 
-#### Imports
+### Test structure
 
 ```gleam
-// ✅ Good: Unqualified imports for commonly used functions
 import dream_test/unit.{describe, it}
-import dream_test/assertions/should.{or_fail_with}
-
-// ❌ Bad: Redundant alias
-import dream_test/assertions/should as should
-
-// ✅ Good: Type imports
-import dream_test/types.{type TestResult, type Status}
-
-// ❌ Bad: Missing type keyword
-import dream_test/types.{TestResult}  // This imports a constructor, not a type
-```
-
-#### Function Design
-
-```gleam
-// ✅ Good: Config records for multi-parameter functions
-pub type TestConfig {
-  TestConfig(
-    name: String,
-    timeout: Int,
-    tags: List(String),
-  )
-}
-
-pub fn run_test(config: TestConfig) { ... }
-
-// ❌ Bad: Long positional argument lists
-pub fn run_test(name: String, timeout: Int, tags: List(String)) { ... }
-```
-
-#### Pipe-Friendly APIs
-
-```gleam
-// ✅ Good: Data-first parameter order for pipes
-pub fn equal(actual: a, expected: a) -> AssertionResult(a) { ... }
-
-value
-|> should.equal(expected)
-|> or_fail_with("message")
-
-// ❌ Bad: Expected-first (not pipe-friendly)
-pub fn equal(expected: a, actual: a) -> AssertionResult(a) { ... }
-```
-
-### Avoid Common Mistakes
-
-See [AGENTS.md](AGENTS.md) for a detailed list of common mistakes and how to avoid them, including:
-
-- Reserved words (`assert` is reserved—use `assertions` instead)
-- Pattern matching in `case` expressions (use `{ ... }` for multi-line branches)
-- List operations (use `list.append`, not `concat`)
-- Import semantics (understand labeled arguments vs config records)
-
-## Testing
-
-### Writing Tests
-
-All new functionality must include tests:
-
-- Add tests in the appropriate `test/dream_test/` subdirectory
-- Follow existing test patterns and structure
-- Use descriptive test names that explain what is being tested
-- Test both success and failure cases
-- Include edge cases
-
-Example:
-
-```gleam
-import dream_test/assertions/should.{equal, fail_with, or_fail_with, should}
+import dream_test/assertions/should.{should, equal, fail_with, or_fail_with}
 import dream_test/types.{AssertionOk, MatchFailed, MatchOk}
-import dream_test/unit.{describe, it}
 
 pub fn tests() {
-  describe("Equality Matchers", [
-    it("passes when values are equal", fn() {
-      let result = 5 |> should() |> equal(5)
+  describe("Feature name", [
+    it("does something when condition", fn() {
+      let result = some_function()
 
       case result {
         MatchOk(_) -> AssertionOk
-        MatchFailed(_) -> fail_with("equal should pass for matching values")
-      }
-    }),
-
-    it("fails when values differ", fn() {
-      let result = 5 |> should() |> equal(10)
-
-      case result {
-        MatchFailed(_) -> AssertionOk
-        MatchOk(_) -> fail_with("equal should fail for non-matching values")
+        MatchFailed(_) -> fail_with("Expected success")
       }
     }),
   ])
 }
 ```
 
-### The Matcher System
+### What to test
 
-dream_test provides a comprehensive matcher system accessible through the `should.*` API. All matchers are pipe-friendly and return `AssertionResult`.
+- Success cases
+- Failure cases
+- Edge cases
+- Error messages (when relevant)
 
-#### Available Matchers
+See [hexdocs](https://hexdocs.pm/dream_test/) for the complete assertion API.
 
-**Equality**
-- `equal(expected)` - Values are equal (use with `should()`)
-- `not_equal(unexpected)` - Values are not equal (use with `should()`)
-
-**Boolean**
-- `be_true()` - Value is True (use with `should()`)
-- `be_false()` - Value is False (use with `should()`)
-
-**Option**
-- `be_some()` - Option is Some, unwraps the value for chaining
-- `be_none()` - Option is None
-
-**Result**
-- `be_ok()` - Result is Ok, unwraps the value for chaining
-- `be_error()` - Result is Error, unwraps the error for chaining
-
-**Collection**
-- `contain(item)` - List contains item (use with `should()`)
-- `not_contain(item)` - List doesn't contain item (use with `should()`)
-- `have_length(n)` - List has length n (use with `should()`)
-- `be_empty()` - List is empty (use with `should()`)
-
-**Comparison**
-- `be_greater_than(threshold)` - Value > threshold (use with `should()`)
-- `be_less_than(threshold)` - Value < threshold (use with `should()`)
-- `be_at_least(minimum)` - Value >= minimum (use with `should()`)
-- `be_at_most(maximum)` - Value <= maximum (use with `should()`)
-- `be_between(min, max)` - min < value < max (exclusive, use with `should()`)
-- `be_in_range(min, max)` - min <= value <= max (inclusive, use with `should()`)
-
-**String**
-- `start_with(prefix)` - String starts with prefix (use with `should()`)
-- `end_with(suffix)` - String ends with suffix (use with `should()`)
-- `contain_string(substring)` - String contains substring (use with `should()`)
-
-#### Custom Matchers
-
-For domain-specific assertions, create custom matchers following this pattern:
-
-```gleam
-import dream_test/types.{
-  type MatchResult, AssertionFailure, CustomMatcherFailure,
-  MatchFailed, MatchOk,
-}
-import dream_test/assertions/should.{type MatchResult, MatchOk, MatchFailed}
-import gleam/option.{Some}
-import gleam/int
-
-pub fn be_even(result: MatchResult(Int)) -> MatchResult(Int) {
-  case result {
-    MatchFailed(failure) -> MatchFailed(failure)
-    MatchOk(value) -> {
-      case value % 2 == 0 {
-        True -> MatchOk(value)
-        False -> MatchFailed(AssertionFailure(
-          operator: "be_even",
-          message: "",
-          payload: Some(CustomMatcherFailure(
-            actual: int.to_string(value),
-            description: "expected even number",
-          )),
-        ))
-      }
-    }
-  }
-}
-
-// Usage reads naturally:
-42 |> be_even()
-```
-
-**Custom Matcher Guidelines:**
-- Return `AssertionResult` (either `AssertionOk` or `AssertionFailed`)
-- Use descriptive operator names
-- Create appropriate `FailurePayload` variants for rich error reporting
-- Keep matchers pure and side-effect free
-- Name matchers with verbs that read well after `should.`
-
-**Note:** The `matchers/` directory is for internal organization. Users should always interact with matchers through the `should.*` API by importing them unqualified and using the chaining pattern: `value |> should() |> matcher(...)`
-
-### Bootstrap Testing
-
-dream_test is self-hosting. When modifying core functionality:
-
-1. Ensure bootstrap tests in `test/dream_test/bootstrap/` still pass
-2. Add bootstrap tests if you're changing foundational code
-3. Run `make all` to verify both regular and bootstrap tests
-
-### Running Tests
-
-```bash
-# Run all tests
-gleam test
-
-# Or with make
-make test
-
-# Run example tests
-cd examples/math_app
-gleam test
-```
+---
 
 ## Documentation
 
-### Code Documentation
+### Code comments
 
-- Add doc comments to all public functions and types
-- Use `///` for documentation comments
-- Include examples in documentation where helpful
-- Document parameters, return values, and any important behavior
+All public functions need `///` doc comments:
 
 ````gleam
-/// Asserts that the actual value equals the expected value.
+/// Checks if the value equals the expected value.
 ///
-/// Returns a MatchResult that can be chained with other matchers or
-/// converted to AssertionResult with `or_fail_with`.
+/// Returns `MatchOk` if equal, `MatchFailed` with details otherwise.
 ///
 /// ## Example
 ///
 /// ```gleam
-/// actual_value
+/// 42
 /// |> should()
-/// |> equal(expected_value)
-/// |> or_fail_with("Values should be equal")
+/// |> equal(42)
+/// |> or_fail_with("Should be 42")
 /// ```
-pub fn equal(value_or_result: MatchResult(a), expected: a) -> MatchResult(a) { ... }
+pub fn equal(result: MatchResult(a), expected: a) -> MatchResult(a) {
+  // ...
+}
 ````
 
-### Updating Documentation Files
+### Updating docs
 
-When making significant changes, update relevant documentation:
+| Changed...     | Update...                      |
+| -------------- | ------------------------------ |
+| Public API     | Hexdocs (update code comments) |
+| Major features | [README.md](README.md)         |
+| Coding rules   | [STANDARDS.md](STANDARDS.md)   |
 
-- **INTERFACE.md** - For API changes visible to test authors
-- **DESIGN.md** - For design decisions and rationale
-- **ARCHITECTURE.md** - For internal architecture changes
-- **README.md** - For major features or changes affecting getting started
-- **STANDARDS.md** - For new code conventions or patterns
+---
 
 ## Pull Request Process
 
-### Before Submitting
+### Before submitting
 
-- [ ] All tests pass (`make all`)
-- [ ] Code follows standards in [STANDARDS.md](STANDARDS.md)
+- [ ] Tests pass (`make all`)
+- [ ] Code follows [STANDARDS.md](STANDARDS.md)
 - [ ] New code has tests
-- [ ] Documentation is updated
-- [ ] Commit messages are clear
-- [ ] Branch is up to date with `main`
+- [ ] Docs updated if needed
+- [ ] Commits are clear and atomic
 
-### PR Description
+### PR template
 
-Include in your pull request:
+```markdown
+## Summary
 
-1. **Summary**: What does this PR do?
-2. **Motivation**: Why is this change needed?
-3. **Changes**: List of key changes made
-4. **Testing**: How was this tested?
-5. **Related Issues**: Reference any related issues
+What does this PR do?
 
-### Review Process
+## Motivation
 
-1. A maintainer will review your PR
-2. Address any feedback or requested changes
-3. Once approved, a maintainer will merge your PR
-4. Your contribution will be included in the next release!
+Why is this change needed?
 
-### After Your PR is Merged
+## Changes
 
-- Delete your feature branch
-- Update your local `main` branch
-- Celebrate! 🎉
+- Change 1
+- Change 2
+
+## Testing
+
+How was this tested?
+
+## Related
+
+Closes #123
+```
+
+### Review process
+
+1. Maintainer reviews your PR
+2. Address feedback
+3. PR gets approved and merged
+4. 🎉
+
+---
 
 ## What We're Looking For
 
-### High Priority
+### High priority
 
-- **Bug fixes** - Especially with test cases demonstrating the issue
-- **Documentation improvements** - Clarity, examples, and accuracy
-- **Additional assertions** - Common assertion patterns
-- **Reporter implementations** - JSON, JUnit, TAP, etc.
-- **Test coverage** - For untested code paths
+- **Bug fixes** with test cases demonstrating the issue
+- **Documentation** improvements
+- **New matchers** for common assertion patterns
+- **Reporters** (JSON, JUnit, TAP)
+- **Test coverage** for untested paths
 
-### Welcome Additions
+### Welcome additions
 
-- **Performance optimizations** - With benchmarks showing improvement
-- **Developer experience** - Better error messages, clearer APIs
-- **Examples** - Real-world usage examples
-- **Integration guides** - Using dream_test with other tools
+- Performance optimizations (with benchmarks)
+- Better error messages
+- Real-world examples
+- Integration guides
 
-### Please Discuss First
+### Discuss first
 
-For major changes, please open an issue to discuss before starting work:
+Open an issue before starting work on:
 
-- **Architecture changes** - Significant refactoring or redesign
-- **Breaking changes** - Changes to public APIs
-- **New dependencies** - Adding external dependencies
-- **Large features** - Anything requiring substantial effort
+- Architecture changes
+- Breaking API changes
+- New dependencies
+- Large features
+
+---
 
 ## Questions?
 
-- **General questions**: Open a GitHub Discussion
-- **Bug reports**: Open an issue
-- **Feature requests**: Open an issue with the "enhancement" label
-- **Security issues**: Email the maintainers directly (don't open a public issue)
-
-## Thank You!
-
-Your contributions make dream_test better for everyone. We appreciate your time and effort! 💚
+| Type              | Where                              |
+| ----------------- | ---------------------------------- |
+| General questions | GitHub Discussions                 |
+| Bug reports       | GitHub Issues                      |
+| Feature requests  | GitHub Issues (label: enhancement) |
+| Security issues   | Email maintainers directly         |
 
 ---
 
 <div align="center">
-  <sub>Happy testing! 🧪</sub>
+  <sub>Thank you for contributing! 💚</sub>
 </div>

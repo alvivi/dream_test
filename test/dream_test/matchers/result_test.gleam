@@ -1,4 +1,6 @@
-import dream_test/assertions/should.{be_error, be_ok, equal, fail_with, or_fail_with, should}
+import dream_test/assertions/should.{
+  be_error, be_ok, equal, fail_with, or_fail_with, should,
+}
 import dream_test/types.{AssertionOk, MatchFailed, MatchOk}
 import dream_test/unit.{describe, it}
 
@@ -63,8 +65,7 @@ pub fn tests() {
 
         case check {
           MatchOk(_) -> AssertionOk
-          MatchFailed(_) ->
-            fail_with("chaining be_ok |> equal should pass")
+          MatchFailed(_) -> fail_with("chaining be_ok |> equal should pass")
         }
       }),
       it("fails chain if inner value differs", fn() {
@@ -78,9 +79,7 @@ pub fn tests() {
         case check {
           MatchFailed(_) -> AssertionOk
           MatchOk(_) ->
-            fail_with(
-              "chaining be_ok |> equal should fail if value differs",
-            )
+            fail_with("chaining be_ok |> equal should fail if value differs")
         }
       }),
       it("fails chain if value is Error", fn() {

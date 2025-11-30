@@ -1,11 +1,11 @@
 import dream_test/assertions/should.{equal, fail_with, or_fail_with, should}
-import dream_test/runner.{SingleTestConfig, run_single_test}
+import dream_test/runner.{run_single_test}
 import dream_test/types.{
   AssertionFailed, AssertionFailure, AssertionOk, EqualityFailure, Failed,
-  Passed, Unit,
+  Passed, SingleTestConfig, Unit,
 }
 import dream_test/unit.{describe, it}
-import gleam/option.{Some}
+import gleam/option.{None, Some}
 
 pub fn tests() {
   describe("Runner", [
@@ -19,6 +19,7 @@ pub fn tests() {
             tags: ["bootstrap", "runner"],
             kind: Unit,
             run: fn() { AssertionOk },
+            timeout_ms: None,
           )
         let expected = Passed
 
@@ -41,6 +42,7 @@ pub fn tests() {
             tags: ["bootstrap", "runner"],
             kind: Unit,
             run: fn() { AssertionOk },
+            timeout_ms: None,
           )
         let expected = []
 
@@ -69,6 +71,7 @@ pub fn tests() {
             tags: ["bootstrap", "runner"],
             kind: Unit,
             run: fn() { AssertionFailed(failure) },
+            timeout_ms: None,
           )
         let expected = Failed
 
@@ -97,6 +100,7 @@ pub fn tests() {
             tags: ["bootstrap", "runner"],
             kind: Unit,
             run: fn() { AssertionFailed(failure) },
+            timeout_ms: None,
           )
 
         // Act

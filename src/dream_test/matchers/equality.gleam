@@ -1,74 +1,114 @@
+//// Equality matchers for dream_test.
+////
+//// These matchers compare values using Gleam's structural equality.
+//// They're re-exported through `dream_test/assertions/should`.
+////
+//// ## Usage
+////
+//// ```gleam
+//// import dream_test/assertions/should.{should, equal, not_equal, or_fail_with}
+////
+//// // Check equality
+//// result
+//// |> should()
+//// |> equal(42)
+//// |> or_fail_with("Should be 42")
+////
+//// // Check inequality
+//// result
+//// |> should()
+//// |> not_equal(0)
+//// |> or_fail_with("Should not be zero")
+//// ```
+
 import dream_test/types.{
   type MatchResult, AssertionFailure, EqualityFailure, MatchFailed, MatchOk,
 }
 import gleam/option.{Some}
 import gleam/string
 
-/// Assert that `actual` equals `expected`, returning a MatchResult.
+/// Assert that a value equals the expected value.
 ///
-/// Intended usage with pipes:
-///   value |> should |> should.equal(expected)
+/// Uses Gleam's structural equality (`==`). Works with any type that
+/// supports equality comparison.
+///
+/// ## Example
+///
+/// ```gleam
+/// add(2, 3)
+/// |> should()
+/// |> equal(5)
+/// |> or_fail_with("2 + 3 should equal 5")
+/// ```
+///
 pub fn equal(value_or_result: MatchResult(a), expected: a) -> MatchResult(a) {
   case value_or_result {
     MatchFailed(failure) -> MatchFailed(failure)
+    MatchOk(actual) -> check_equal(actual, expected)
+  }
+}
 
-    MatchOk(actual) -> {
-      case actual == expected {
-        True -> MatchOk(actual)
+fn check_equal(actual: a, expected: a) -> MatchResult(a) {
+  case actual == expected {
+    True -> MatchOk(actual)
+    False -> {
+      let payload =
+        EqualityFailure(
+          actual: inspect_value(actual),
+          expected: inspect_value(expected),
+        )
 
-        False -> {
-          let payload =
-            EqualityFailure(
-              actual: inspect_value(actual),
-              expected: inspect_value(expected),
-            )
-
-          MatchFailed(AssertionFailure(
-            operator: "equal",
-            message: "",
-            payload: Some(payload),
-          ))
-        }
-      }
+      MatchFailed(AssertionFailure(
+        operator: "equal",
+        message: "",
+        payload: Some(payload),
+      ))
     }
   }
 }
 
-/// Assert that `actual` does not equal `unexpected`, returning a MatchResult.
+/// Assert that a value does not equal the unexpected value.
 ///
-/// Intended usage with pipes:
-///   value |> should |> should.not_equal(unexpected)
+/// Uses Gleam's structural inequality (`!=`).
+///
+/// ## Example
+///
+/// ```gleam
+/// divide(10, 3)
+/// |> should()
+/// |> not_equal(3)
+/// |> or_fail_with("10/3 should not equal 3 exactly")
+/// ```
+///
 pub fn not_equal(
   value_or_result: MatchResult(a),
   unexpected: a,
 ) -> MatchResult(a) {
   case value_or_result {
     MatchFailed(failure) -> MatchFailed(failure)
+    MatchOk(actual) -> check_not_equal(actual, unexpected)
+  }
+}
 
-    MatchOk(actual) -> {
-      case actual != unexpected {
-        True -> MatchOk(actual)
+fn check_not_equal(actual: a, unexpected: a) -> MatchResult(a) {
+  case actual != unexpected {
+    True -> MatchOk(actual)
+    False -> {
+      let payload =
+        EqualityFailure(
+          actual: inspect_value(actual),
+          expected: "not " <> inspect_value(unexpected),
+        )
 
-        False -> {
-          let payload =
-            EqualityFailure(
-              actual: inspect_value(actual),
-              expected: "not " <> inspect_value(unexpected),
-            )
-
-          MatchFailed(AssertionFailure(
-            operator: "not_equal",
-            message: "",
-            payload: Some(payload),
-          ))
-        }
-      }
+      MatchFailed(AssertionFailure(
+        operator: "not_equal",
+        message: "",
+        payload: Some(payload),
+      ))
     }
   }
 }
 
 fn inspect_value(value: a) -> String {
-  // For now we rely on Gleam's built-in debug representation via string.inspect.
-  // This can be refined later for prettier diffs.
   string.inspect(value)
 }

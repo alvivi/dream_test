@@ -1,68 +1,131 @@
+//// Result matchers for dream_test.
+////
+//// These matchers work with `Result(a, e)` values and support chaining.
+//// They're re-exported through `dream_test/assertions/should`.
+////
+//// ## Chaining
+////
+//// Both `be_ok` and `be_error` extract their inner values, allowing you to
+//// chain additional matchers:
+////
+//// ```gleam
+//// import dream_test/assertions/should.{should, be_ok, be_error, equal, or_fail_with}
+////
+//// // Check that it's Ok, then check the inner value
+//// parse_int("42")
+//// |> should()
+//// |> be_ok()
+//// |> equal(42)
+//// |> or_fail_with("Should parse to 42")
+////
+//// // Check that it's Error, then check the error value
+//// validate(invalid_input)
+//// |> should()
+//// |> be_error()
+//// |> equal(ValidationError("email required"))
+//// |> or_fail_with("Should fail with email error")
+//// ```
+
 import dream_test/types.{
   type MatchResult, AssertionFailure, MatchFailed, MatchOk, ResultFailure,
 }
 import gleam/option.{Some}
 import gleam/string
 
-/// Assert that `actual` is Ok, returning the inner value in a MatchResult.
+/// Assert that a `Result` is `Ok` and extract its value.
 ///
-/// Intended usage with pipes:
-///   value |> should |> should.be_ok()
+/// If the assertion passes, the `Ok` value is passed to subsequent matchers.
+///
+/// ## Example
+///
+/// ```gleam
+/// parse_int("42")
+/// |> should()
+/// |> be_ok()
+/// |> or_fail_with("Should parse successfully")
+/// ```
+///
+/// ## Chaining
+///
+/// ```gleam
+/// Ok("hello")
+/// |> should()
+/// |> be_ok()
+/// |> equal("hello")
+/// |> or_fail_with("Should be Ok with 'hello'")
+/// ```
+///
 pub fn be_ok(value_or_result: MatchResult(Result(a, e))) -> MatchResult(a) {
   case value_or_result {
     MatchFailed(failure) -> MatchFailed(failure)
+    MatchOk(actual) -> check_is_ok(actual)
+  }
+}
 
-    MatchOk(actual) -> {
-      case actual {
-        Ok(value) -> MatchOk(value)
+fn check_is_ok(actual: Result(a, e)) -> MatchResult(a) {
+  case actual {
+    Ok(value) -> MatchOk(value)
+    Error(error) -> {
+      let payload =
+        ResultFailure(
+          actual: "Error(" <> string.inspect(error) <> ")",
+          expected_ok: True,
+        )
 
-        Error(error) -> {
-          let payload =
-            ResultFailure(
-              actual: "Error(" <> string.inspect(error) <> ")",
-              expected_ok: True,
-            )
-
-          MatchFailed(AssertionFailure(
-            operator: "be_ok",
-            message: "",
-            payload: Some(payload),
-          ))
-        }
-      }
+      MatchFailed(AssertionFailure(
+        operator: "be_ok",
+        message: "",
+        payload: Some(payload),
+      ))
     }
   }
 }
 
-/// Assert that `actual` is Error, returning the error value in a MatchResult.
+/// Assert that a `Result` is `Error` and extract the error value.
 ///
-/// Intended usage with pipes:
-///   value |> should |> should.be_error()
+/// If the assertion passes, the error value is passed to subsequent matchers.
+///
+/// ## Example
+///
+/// ```gleam
+/// parse_int("not a number")
+/// |> should()
+/// |> be_error()
+/// |> or_fail_with("Should fail to parse")
+/// ```
+///
+/// ## Chaining
+///
+/// ```gleam
+/// Error("invalid")
+/// |> should()
+/// |> be_error()
+/// |> equal("invalid")
+/// |> or_fail_with("Should be Error with 'invalid'")
+/// ```
+///
 pub fn be_error(value_or_result: MatchResult(Result(a, e))) -> MatchResult(e) {
   case value_or_result {
     MatchFailed(failure) -> MatchFailed(failure)
-
-    MatchOk(actual) -> {
-      case actual {
-        Error(error) -> MatchOk(error)
-
-        Ok(value) -> {
-          let payload =
-            ResultFailure(
-              actual: "Ok(" <> string.inspect(value) <> ")",
-              expected_ok: False,
-            )
-
-          MatchFailed(AssertionFailure(
-            operator: "be_error",
-            message: "",
-            payload: Some(payload),
-          ))
-        }
-      }
-    }
+    MatchOk(actual) -> check_is_error(actual)
   }
 }
 
-// Note: be_ok_and is removed as chaining replaces it naturally:
-// Ok(42) |> should |> be_ok() |> equal(42)
+fn check_is_error(actual: Result(a, e)) -> MatchResult(e) {
+  case actual {
+    Error(error) -> MatchOk(error)
+    Ok(value) -> {
+      let payload =
+        ResultFailure(
+          actual: "Ok(" <> string.inspect(value) <> ")",
+          expected_ok: False,
+        )
+
+      MatchFailed(AssertionFailure(
+        operator: "be_error",
+        message: "",
+        payload: Some(payload),
+      ))
+    }
+  }
+}
