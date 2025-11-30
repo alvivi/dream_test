@@ -1,5 +1,5 @@
 import gleam/list
-import dream_test/types.{Location, Unit, type AssertionResult}
+import dream_test/types.{Unit, type AssertionResult}
 import dream_test/runner.{type TestCase, TestCase, SingleTestConfig}
 
 /// Unit test DSL types and helpers.
@@ -33,9 +33,6 @@ pub fn describe(name: String, children: List(UnitTest)) -> UnitTest {
 }
 
 /// Translate a UnitTest tree into runner TestCase values.
-///
-/// `module_name` is used for the Location.module_ field; in the future we may
-/// compute this automatically.
 pub fn to_test_cases(module_name: String, root: UnitTest) -> List(TestCase) {
   to_test_cases_from_unit_test(module_name, [], root, [])
 }
@@ -56,20 +53,18 @@ fn to_test_cases_from_unit_test(module_name: String,
   }
 }
 
-fn build_it_test_case(module_name: String,
+fn build_it_test_case(_module_name: String,
   name_prefix: List(String),
   name: String,
   run: fn() -> AssertionResult,
   accumulated: List(TestCase),
 ) -> List(TestCase) {
   let full_name = list.append(name_prefix, [name])
-  let location = Location(module_name, "", 0)
   let config = SingleTestConfig(
     name: name,
     full_name: full_name,
     tags: [],
     kind: Unit,
-    location: location,
     run: run,
   )
   let test_case = TestCase(config)

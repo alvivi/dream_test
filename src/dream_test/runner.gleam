@@ -1,5 +1,5 @@
 import gleam/list
-import dream_test/types.{type TestKind, type TestResult, type Location, type AssertionResult, AssertionOk, AssertionFailed, TestResult, status_from_failures}
+import dream_test/types.{type TestKind, type TestResult, type AssertionResult, AssertionOk, AssertionFailed, TestResult, status_from_failures}
 
 /// Core runner helpers.
 ///
@@ -12,7 +12,6 @@ pub type SingleTestConfig {
     full_name: List(String),
     tags: List(String),
     kind: TestKind,
-    location: Location,
     run: fn() -> AssertionResult,
   )
 }
@@ -40,7 +39,6 @@ pub fn run_single_test(config: SingleTestConfig) -> TestResult {
     duration_ms: 0,
     tags: config.tags,
     failures: failures,
-    location: config.location,
     kind: config.kind,
   )
 }

@@ -262,31 +262,27 @@ All new functionality must include tests:
 Example:
 
 ```gleam
+import dream_test/assertions/should.{equal, fail_with, or_fail_with, should}
+import dream_test/types.{AssertionOk, MatchFailed, MatchOk}
+import dream_test/unit.{describe, it}
+
 pub fn tests() {
   describe("Equality Matchers", [
     it("passes when values are equal", fn() {
-      let result = 5 |> should.equal(5)
+      let result = 5 |> should() |> equal(5)
 
       case result {
-        AssertionOk -> AssertionOk
-        AssertionFailed(_) -> {
-          False
-          |> should.equal(True)
-          |> or_fail_with("equal should pass for matching values")
-        }
+        MatchOk(_) -> AssertionOk
+        MatchFailed(_) -> fail_with("equal should pass for matching values")
       }
     }),
 
     it("fails when values differ", fn() {
-      let result = 5 |> should.equal(10)
+      let result = 5 |> should() |> equal(10)
 
       case result {
-        AssertionFailed(_) -> AssertionOk
-        AssertionOk -> {
-          False
-          |> should.equal(True)
-          |> or_fail_with("equal should fail for non-matching values")
-        }
+        MatchFailed(_) -> AssertionOk
+        MatchOk(_) -> fail_with("equal should fail for non-matching values")
       }
     }),
   ])
@@ -300,43 +296,39 @@ dream_test provides a comprehensive matcher system accessible through the `shoul
 #### Available Matchers
 
 **Equality**
-- `should.equal(expected)` - Values are equal
-- `should.not_equal(unexpected)` - Values are not equal
+- `equal(expected)` - Values are equal (use with `should()`)
+- `not_equal(unexpected)` - Values are not equal (use with `should()`)
 
 **Boolean**
-- `should.be_true()` - Value is True
-- `should.be_false()` - Value is False
+- `be_true()` - Value is True (use with `should()`)
+- `be_false()` - Value is False (use with `should()`)
 
 **Option**
-- `should.be_some()` - Option is Some
-- `should.be_none()` - Option is None
-- `should.be_some_and(matcher)` - Option is Some and inner value matches
+- `be_some()` - Option is Some, unwraps the value for chaining
+- `be_none()` - Option is None
 
 **Result**
-- `should.be_ok()` - Result is Ok
-- `should.be_error()` - Result is Error
-- `should.be_ok_and(matcher)` - Result is Ok and inner value matches
+- `be_ok()` - Result is Ok, unwraps the value for chaining
+- `be_error()` - Result is Error, unwraps the error for chaining
 
 **Collection**
-- `should.contain(item)` - List contains item
-- `should.not_contain(item)` - List doesn't contain item
-- `should.have_length(n)` - List has length n
-- `should.be_empty()` - List is empty
+- `contain(item)` - List contains item (use with `should()`)
+- `not_contain(item)` - List doesn't contain item (use with `should()`)
+- `have_length(n)` - List has length n (use with `should()`)
+- `be_empty()` - List is empty (use with `should()`)
 
 **Comparison**
-- `should.be_greater_than(threshold)` - Value > threshold
-- `should.be_less_than(threshold)` - Value < threshold
-- `should.be_at_least(minimum)` - Value >= minimum
-- `should.be_at_most(maximum)` - Value <= maximum
-- `should.be_between(min, max)` - min < value < max (exclusive)
-- `should.be_in_range(min, max)` - min <= value <= max (inclusive)
-- `should.be_greater_than_float(threshold)` - Float comparison
-- `should.be_less_than_float(threshold)` - Float comparison
+- `be_greater_than(threshold)` - Value > threshold (use with `should()`)
+- `be_less_than(threshold)` - Value < threshold (use with `should()`)
+- `be_at_least(minimum)` - Value >= minimum (use with `should()`)
+- `be_at_most(maximum)` - Value <= maximum (use with `should()`)
+- `be_between(min, max)` - min < value < max (exclusive, use with `should()`)
+- `be_in_range(min, max)` - min <= value <= max (inclusive, use with `should()`)
 
 **String**
-- `should.start_with(prefix)` - String starts with prefix
-- `should.end_with(suffix)` - String ends with suffix
-- `should.contain_string(substring)` - String contains substring
+- `start_with(prefix)` - String starts with prefix (use with `should()`)
+- `end_with(suffix)` - String ends with suffix (use with `should()`)
+- `contain_string(substring)` - String contains substring (use with `should()`)
 
 #### Custom Matchers
 
@@ -344,29 +336,28 @@ For domain-specific assertions, create custom matchers following this pattern:
 
 ```gleam
 import dream_test/types.{
-  type AssertionResult, AssertionFailed, AssertionFailure, AssertionOk, Location,
-  CustomMatcherFailure,
+  type MatchResult, AssertionFailure, CustomMatcherFailure,
+  MatchFailed, MatchOk,
 }
+import dream_test/assertions/should.{type MatchResult, MatchOk, MatchFailed}
 import gleam/option.{Some}
-import gleam/string
+import gleam/int
 
-pub fn be_even(value: Int) -> AssertionResult {
-  case value % 2 == 0 {
-    True -> AssertionOk
-
-    False -> {
-      let payload =
-        CustomMatcherFailure(
-          actual: string.inspect(value),
-          description: "value was odd",
-        )
-
-      AssertionFailed(AssertionFailure(
-        operator: "be_even",
-        message: "expected even number",
-        location: Location("unknown", "unknown", 0),
-        payload: Some(payload),
-      ))
+pub fn be_even(result: MatchResult(Int)) -> MatchResult(Int) {
+  case result {
+    MatchFailed(failure) -> MatchFailed(failure)
+    MatchOk(value) -> {
+      case value % 2 == 0 {
+        True -> MatchOk(value)
+        False -> MatchFailed(AssertionFailure(
+          operator: "be_even",
+          message: "",
+          payload: Some(CustomMatcherFailure(
+            actual: int.to_string(value),
+            description: "expected even number",
+          )),
+        ))
+      }
     }
   }
 }
@@ -382,8 +373,7 @@ pub fn be_even(value: Int) -> AssertionResult {
 - Keep matchers pure and side-effect free
 - Name matchers with verbs that read well after `should.`
 
-**Note:** The `matchers/` directory is for internal organization. Users should always interact with matchers through the `should.*` API
-```
+**Note:** The `matchers/` directory is for internal organization. Users should always interact with matchers through the `should.*` API by importing them unqualified and using the chaining pattern: `value |> should() |> matcher(...)`
 
 ### Bootstrap Testing
 
@@ -419,17 +409,18 @@ gleam test
 ````gleam
 /// Asserts that the actual value equals the expected value.
 ///
-/// Returns a TestContext with the assertion result. Use with `or_fail_with`
-/// to provide a custom failure message.
+/// Returns a MatchResult that can be chained with other matchers or
+/// converted to AssertionResult with `or_fail_with`.
 ///
 /// ## Example
 ///
 /// ```gleam
 /// actual_value
-/// |> should.equal(expected_value)
+/// |> should()
+/// |> equal(expected_value)
 /// |> or_fail_with("Values should be equal")
 /// ```
-pub fn equal(actual: a, expected: a) -> TestContext(a) { ... }
+pub fn equal(value_or_result: MatchResult(a), expected: a) -> MatchResult(a) { ... }
 ````
 
 ### Updating Documentation Files

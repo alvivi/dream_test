@@ -4,10 +4,6 @@
 /// safely imported from most other layers.
 import gleam/option.{type Option}
 
-pub type Location {
-  Location(module_: String, file: String, line: Int)
-}
-
 pub type Status {
   Passed
   Failed
@@ -37,7 +33,6 @@ pub type AssertionFailure {
   AssertionFailure(
     operator: String,
     message: String,
-    location: Location,
     payload: Option(FailurePayload),
   )
 }
@@ -49,6 +44,30 @@ pub type AssertionFailure {
 pub type AssertionResult {
   AssertionOk
   AssertionFailed(AssertionFailure)
+}
+
+/// Result of a matcher that carries the value forward for chaining.
+///
+/// This enables syntax like:
+///   Some(42) |> should.be_some() |> should.be_greater_than(20)
+///
+/// The value flows through the chain, and each matcher can:
+/// - Short-circuit if already failed
+/// - Extract and check the value
+/// - Pass the value forward to the next matcher
+pub type MatchResult(a) {
+  MatchOk(a)
+  MatchFailed(AssertionFailure)
+}
+
+/// Convert a MatchResult to AssertionResult (discards the value).
+///
+/// This is used at the end of a chain to extract just the pass/fail status.
+pub fn to_assertion_result(result: MatchResult(a)) -> AssertionResult {
+  case result {
+    MatchOk(_) -> AssertionOk
+    MatchFailed(failure) -> AssertionFailed(failure)
+  }
 }
 
 pub type ModuleCoverage {
@@ -72,7 +91,6 @@ pub type TestResult {
     duration_ms: Int,
     tags: List(String),
     failures: List(AssertionFailure),
-    location: Location,
     kind: TestKind,
   )
 }

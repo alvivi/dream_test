@@ -1,8 +1,8 @@
-import dream_test/assertions/should.{or_fail_with}
+import dream_test/assertions/should.{equal, fail_with, or_fail_with, should}
 import dream_test/runner.{SingleTestConfig, run_single_test}
 import dream_test/types.{
   AssertionFailed, AssertionFailure, AssertionOk, EqualityFailure, Failed,
-  Location, Passed, Unit,
+  Passed, Unit,
 }
 import dream_test/unit.{describe, it}
 import gleam/option.{Some}
@@ -18,7 +18,6 @@ pub fn tests() {
             full_name: ["bootstrap", "runner_core"],
             tags: ["bootstrap", "runner"],
             kind: Unit,
-            location: Location("test", "test.gleam", 0),
             run: fn() { AssertionOk },
           )
         let expected = Passed
@@ -28,7 +27,8 @@ pub fn tests() {
 
         // Assert
         result.status
-        |> should.equal(expected)
+        |> should()
+        |> equal(expected)
         |> or_fail_with("Passing test should have Passed status")
       }),
 
@@ -40,7 +40,6 @@ pub fn tests() {
             full_name: ["bootstrap", "runner_core"],
             tags: ["bootstrap", "runner"],
             kind: Unit,
-            location: Location("test", "test.gleam", 0),
             run: fn() { AssertionOk },
           )
         let expected = []
@@ -50,7 +49,8 @@ pub fn tests() {
 
         // Assert
         result.failures
-        |> should.equal(expected)
+        |> should()
+        |> equal(expected)
         |> or_fail_with("Passing test should have no failures")
       }),
 
@@ -60,7 +60,6 @@ pub fn tests() {
           AssertionFailure(
             operator: "equal",
             message: "",
-            location: Location("test", "test.gleam", 0),
             payload: Some(EqualityFailure(actual: "1", expected: "2")),
           )
         let config =
@@ -69,7 +68,6 @@ pub fn tests() {
             full_name: ["bootstrap", "runner_core"],
             tags: ["bootstrap", "runner"],
             kind: Unit,
-            location: Location("test", "test.gleam", 0),
             run: fn() { AssertionFailed(failure) },
           )
         let expected = Failed
@@ -79,7 +77,8 @@ pub fn tests() {
 
         // Assert
         result.status
-        |> should.equal(expected)
+        |> should()
+        |> equal(expected)
         |> or_fail_with("Failing test should have Failed status")
       }),
 
@@ -89,7 +88,6 @@ pub fn tests() {
           AssertionFailure(
             operator: "equal",
             message: "",
-            location: Location("test", "test.gleam", 0),
             payload: Some(EqualityFailure(actual: "1", expected: "2")),
           )
         let config =
@@ -98,7 +96,6 @@ pub fn tests() {
             full_name: ["bootstrap", "runner_core"],
             tags: ["bootstrap", "runner"],
             kind: Unit,
-            location: Location("test", "test.gleam", 0),
             run: fn() { AssertionFailed(failure) },
           )
 
@@ -107,11 +104,7 @@ pub fn tests() {
 
         // Assert
         case result.failures {
-          [] -> {
-            False
-            |> should.equal(True)
-            |> or_fail_with("Failing test should have at least one failure")
-          }
+          [] -> fail_with("Failing test should have at least one failure")
           [_, ..] -> AssertionOk
         }
       }),

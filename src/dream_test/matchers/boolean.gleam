@@ -1,47 +1,56 @@
 import dream_test/types.{
-  type AssertionResult, AssertionFailed, AssertionFailure, AssertionOk,
-  BooleanFailure, Location,
+  type MatchResult, AssertionFailure, BooleanFailure, MatchFailed, MatchOk,
 }
 import gleam/option.{Some}
 
-/// Assert that `actual` is True, returning an AssertionResult.
+/// Assert that `actual` is True, returning a MatchResult.
 ///
 /// Intended usage with pipes:
-///   value |> should.be_true()
-pub fn be_true(actual: Bool) -> AssertionResult {
-  case actual {
-    True -> AssertionOk
+///   value |> should |> should.be_true()
+pub fn be_true(value_or_result: MatchResult(Bool)) -> MatchResult(Bool) {
+  case value_or_result {
+    MatchFailed(failure) -> MatchFailed(failure)
 
-    False -> {
-      let payload = BooleanFailure(actual: False, expected: True)
+    MatchOk(actual) -> {
+      case actual {
+        True -> MatchOk(True)
 
-      AssertionFailed(AssertionFailure(
-        operator: "be_true",
-        message: "",
-        location: Location("unknown", "unknown", 0),
-        payload: Some(payload),
-      ))
+        False -> {
+          let payload = BooleanFailure(actual: False, expected: True)
+
+          MatchFailed(AssertionFailure(
+            operator: "be_true",
+            message: "",
+            payload: Some(payload),
+          ))
+        }
+      }
     }
   }
 }
 
-/// Assert that `actual` is False, returning an AssertionResult.
+/// Assert that `actual` is False, returning a MatchResult.
 ///
 /// Intended usage with pipes:
-///   value |> should.be_false()
-pub fn be_false(actual: Bool) -> AssertionResult {
-  case actual {
-    False -> AssertionOk
+///   value |> should |> should.be_false()
+pub fn be_false(value_or_result: MatchResult(Bool)) -> MatchResult(Bool) {
+  case value_or_result {
+    MatchFailed(failure) -> MatchFailed(failure)
 
-    True -> {
-      let payload = BooleanFailure(actual: True, expected: False)
+    MatchOk(actual) -> {
+      case actual {
+        False -> MatchOk(False)
 
-      AssertionFailed(AssertionFailure(
-        operator: "be_false",
-        message: "",
-        location: Location("unknown", "unknown", 0),
-        payload: Some(payload),
-      ))
+        True -> {
+          let payload = BooleanFailure(actual: True, expected: False)
+
+          MatchFailed(AssertionFailure(
+            operator: "be_false",
+            message: "",
+            payload: Some(payload),
+          ))
+        }
+      }
     }
   }
 }

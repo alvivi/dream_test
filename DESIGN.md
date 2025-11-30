@@ -1,6 +1,7 @@
 # Dream Test Framework Design
 
 ## Goals
+
 - Provide a **Gleam-first** testing framework that supports:
   - Rich **unit tests** with names, metadata, tags, and good failure messages.
   - **Integration tests** and **BDD-style** tests using real Gherkin `.feature` files.
@@ -25,6 +26,7 @@
 The system is structured in **layers**, each depending only on the layer(s) below it. The lowest layer uses only raw Gleam (`assert`, pattern matching). Higher layers implement the user-facing API and test framework behavior.
 
 ### Layer 0 – Raw Gleam Assertions
+
 - Uses built-in Gleam `assert` and `let assert` only.
 - Purpose:
   - Test the initial minimal assertion helper module (`core_assert`).
@@ -33,56 +35,61 @@ The system is structured in **layers**, each depending only on the layer(s) belo
   - `assert some_condition as "message"`.
 
 ### Layer 1 – `dream_test/bootstrap/assertions`: Minimal Internal Assertions
+
 - Very small, internal-only assertion helpers.
 - No runner, no reporters, no tags.
 - Responsibilities:
--  - Provide simple functions like:
--    - `assertions.equal(expected, actual, message)`
--    - `assertions.is_true(cond, message)`
--  - Wrap raw `assert` with clearer semantics and reusable messages.
+- - Provide simple functions like:
+- - `assertions.equal(expected, actual, message)`
+- - `assertions.is_true(cond, message)`
+- - Wrap raw `assert` with clearer semantics and reusable messages.
 - Used to test:
--  - Core types and helpers in higher layers (e.g. status derivation, result shaping).
+- - Core types and helpers in higher layers (e.g. status derivation, result shaping).
 - Never rewired.
--  - Always implemented in terms of Gleam built-ins.
--  - Later layers are free to evolve without changing these tests.
+- - Always implemented in terms of Gleam built-ins.
+- - Later layers are free to evolve without changing these tests.
 
 ### Layer 2 – Core Types & Low-Level Helpers
+
 - Defines core data structures and helpers that do **not** depend on the runner yet.
 - Implemented in the `dream_test/types` module.
 - Examples:
--  - `Location` (module, file, line).
--  - `Status` (`Passed`, `Failed`, `Skipped`, `Pending`, `TimedOut`).
--  - `FailurePayload` (currently `EqualityFailure(actual: String, expected: String)`).
--  - `AssertionFailure` (operator, message, location, payload).
--  - `AssertionResult` (`AssertionOk` / `AssertionFailed(AssertionFailure)`).
--  - `TestResult` (name, status, duration, tags, failures, location, kind).
+- - `Status` (`Passed`, `Failed`, `Skipped`, `Pending`, `TimedOut`).
+- - `FailurePayload` (e.g., `EqualityFailure(actual: String, expected: String)`).
+- - `AssertionFailure` (operator, message, payload).
+- - `AssertionResult` (`AssertionOk` / `AssertionFailed(AssertionFailure)`).
+- - `TestResult` (name, status, duration, tags, failures, kind).
 - Responsibilities:
--  - Represent test and assertion outcomes in a structured way.
--  - Provide helpers such as `status_from_failures(failures) -> Status`.
+- - Represent test and assertion outcomes in a structured way.
+- - Provide helpers such as `status_from_failures(failures) -> Status`.
 - Tested with:
--  - `dream_test/bootstrap/assertions` functions (Layer 1).
--  - `core_assert` functions (Layer 1).
+- - `dream_test/bootstrap/assertions` functions (Layer 1).
+- - `core_assert` functions (Layer 1).
 
 ### Layer 3 – Assertion Engine (`should` Core)
+
 - First version of our real assertion system.
 - Introduces:
--  - Core `should` functions (pipe-first style), e.g.:
--    - `should.equal(actual, expected) -> AssertionResult`
--    - `or_fail_with(result, message) -> AssertionResult`
+- - Core `should` functions (pipe-first style with chaining), e.g.:
+- - `should(value) -> MatchResult(a)` - starts a chain
+- - `equal(value_or_result: MatchResult(a), expected: a) -> MatchResult(a)`
+- - `or_fail_with(result: MatchResult(a), message: String) -> AssertionResult`
 - Design principles:
--  - **Pipe-first** API: value under test is on the left of the pipe.
--    - `value |> should.equal(expected) |> should.or_fail_with("message")`
--  - Assertions operate on values and return `AssertionResult`, not raise directly.
--  - Failures are **data** (`AssertionFailure` with optional `FailurePayload`), not just strings.
+- - **Pipe-first** API with chaining: value under test is on the left of the pipe.
+- - `value |> should() |> equal(expected) |> or_fail_with("message")`
+- - Matchers operate on `MatchResult(a)` and return `MatchResult(a)` for chaining.
+- - Terminal operations convert `MatchResult` to `AssertionResult` for the test runner.
+- - Failures are **data** (`AssertionFailure` with optional `FailurePayload`), not just strings.
 - Tested with:
--  - `dream_test/bootstrap/assertions` by inspecting `AssertionResult` and `AssertionFailure` values.
+- - `dream_test/bootstrap/assertions` by inspecting `AssertionResult` and `AssertionFailure` values.
 
 ### Layer 4 – Runner Core
+
 - Responsible for **executing** tests and collecting results.
 - Concepts:
--  - `TestCase` – a runnable test with:
--    - `name`, `full_name` (hierarchical), `tags`, `location`, `kind` (unit/integration/Gherkin), and a `run: fn() -> AssertionResult` function.
--  - `TestSuite` – a collection/tree of `TestCase`s.
+- - `TestCase` – a runnable test with:
+- - `name`, `full_name` (hierarchical), `tags`, `kind` (unit/integration/Gherkin), and a `run: fn() -> AssertionResult` function.
+- - `TestSuite` – a collection/tree of `TestCase`s.
 - Responsibilities:
   - Execute `TestCase`s and produce `TestResult`s.
   - Enforce timeouts.
@@ -97,6 +104,7 @@ The system is structured in **layers**, each depending only on the layer(s) belo
   - `core_assert`, by calling into the runner and asserting on returned `TestResult`s.
 
 ### Layer 5 – Public Test DSL (Unit Testing)
+
 - User-facing Gleam API for unit tests, built on top of the runner and assertion engine.
 - Provides constructs like:
   - `describe("User registration", [ ... ])`
@@ -112,6 +120,7 @@ The system is structured in **layers**, each depending only on the layer(s) belo
   - Early versions may still use `core_assert` to validate DSL -> `TestCase` translation.
 
 ### Layer 6 – Gherkin / Integration Layer
+
 - Supports behavior-driven tests via real **Gherkin `.feature` files**.
 - Responsibilities:
   - Parse `.feature` files (standard Gherkin syntax).
@@ -130,6 +139,7 @@ The system is structured in **layers**, each depending only on the layer(s) belo
 - Integration tests can leverage Dream or other frameworks, but the Gherkin layer itself is generic.
 
 ### Layer 7 – Reporters, CLI, and Tooling
+
 - **Reporters**:
   - Pretty console output (default).
   - Machine-readable formats (JSON, JUnit XML, etc.) for CI.
@@ -179,9 +189,9 @@ This gives us:
 
 ## Design Decisions (Locked In)
 
-- **Pipe-first assertions**:
+- **Pipe-first assertions with chaining**:
   - Value under test on the left, assertion functions on the right.
-  - Example: `value |> should.equal(expected) |> or_fail_with("msg")`.
+  - Example: `value |> should() |> equal(expected) |> or_fail_with("msg")`.
 - **Real `.feature` files for Gherkin**:
   - Use standard Gherkin syntax and semantics.
   - `.feature` files live under a conventional directory (e.g. `test/features/`).
@@ -196,7 +206,7 @@ This gives us:
 
 1. Implement `src/core_assert.gleam` (Layer 1) using raw `assert`.
 2. Define core types in `src/test_core.gleam` (Layer 2):
-   - `Location`, `Status`, `AssertionFailure`, `TestResult`.
+   - `Status`, `AssertionFailure`, `TestResult`.
 3. Add a simple bootstrap test module (e.g. `test/bootstrap/test_status_bootstrap.gleam`) that:
    - Uses `core_assert` to test status derivation and basic behavior.
 4. Implement the initial `should` core and `TestContext` (Layer 3).

@@ -1,117 +1,142 @@
 import dream_test/types.{
-  type AssertionResult, AssertionFailed, AssertionFailure, AssertionOk,
-  CollectionFailure, Location,
+  type MatchResult, AssertionFailure, CollectionFailure, MatchFailed, MatchOk,
 }
 import gleam/int
 import gleam/list
 import gleam/option.{Some}
 import gleam/string
 
-/// Assert that `actual_list` contains `expected_item`, returning an AssertionResult.
+/// Assert that `actual_list` contains `expected_item`, returning a MatchResult.
 ///
 /// Intended usage with pipes:
-///   list |> should.contain(item)
-pub fn contain(actual_list: List(a), expected_item: a) -> AssertionResult {
-  case list.contains(actual_list, expected_item) {
-    True -> AssertionOk
+///   list |> should |> should.contain(item)
+pub fn contain(
+  value_or_result: MatchResult(List(a)),
+  expected_item: a,
+) -> MatchResult(List(a)) {
+  case value_or_result {
+    MatchFailed(failure) -> MatchFailed(failure)
 
-    False -> {
-      let payload =
-        CollectionFailure(
-          actual: string.inspect(actual_list),
-          expected: string.inspect(expected_item),
-          operation: "contain",
-        )
+    MatchOk(actual_list) -> {
+      case list.contains(actual_list, expected_item) {
+        True -> MatchOk(actual_list)
 
-      AssertionFailed(AssertionFailure(
-        operator: "contain",
-        message: "",
-        location: Location("unknown", "unknown", 0),
-        payload: Some(payload),
-      ))
+        False -> {
+          let payload =
+            CollectionFailure(
+              actual: string.inspect(actual_list),
+              expected: string.inspect(expected_item),
+              operation: "contain",
+            )
+
+          MatchFailed(AssertionFailure(
+            operator: "contain",
+            message: "",
+            payload: Some(payload),
+          ))
+        }
+      }
     }
   }
 }
 
-/// Assert that `actual_list` does not contain `unexpected_item`, returning an AssertionResult.
+/// Assert that `actual_list` does not contain `unexpected_item`, returning a MatchResult.
 ///
 /// Intended usage with pipes:
-///   list |> should.not_contain(item)
-pub fn not_contain(actual_list: List(a), unexpected_item: a) -> AssertionResult {
-  case list.contains(actual_list, unexpected_item) {
-    False -> AssertionOk
+///   list |> should |> should.not_contain(item)
+pub fn not_contain(
+  value_or_result: MatchResult(List(a)),
+  unexpected_item: a,
+) -> MatchResult(List(a)) {
+  case value_or_result {
+    MatchFailed(failure) -> MatchFailed(failure)
 
-    True -> {
-      let payload =
-        CollectionFailure(
-          actual: string.inspect(actual_list),
-          expected: "not " <> string.inspect(unexpected_item),
-          operation: "not_contain",
-        )
+    MatchOk(actual_list) -> {
+      case list.contains(actual_list, unexpected_item) {
+        False -> MatchOk(actual_list)
 
-      AssertionFailed(AssertionFailure(
-        operator: "not_contain",
-        message: "",
-        location: Location("unknown", "unknown", 0),
-        payload: Some(payload),
-      ))
+        True -> {
+          let payload =
+            CollectionFailure(
+              actual: string.inspect(actual_list),
+              expected: "not " <> string.inspect(unexpected_item),
+              operation: "not_contain",
+            )
+
+          MatchFailed(AssertionFailure(
+            operator: "not_contain",
+            message: "",
+            payload: Some(payload),
+          ))
+        }
+      }
     }
   }
 }
 
-/// Assert that `actual_list` has the expected length, returning an AssertionResult.
+/// Assert that `actual_list` has the expected length, returning a MatchResult.
 ///
 /// Intended usage with pipes:
-///   list |> should.have_length(3)
+///   list |> should |> should.have_length(3)
 pub fn have_length(
-  actual_list: List(a),
+  value_or_result: MatchResult(List(a)),
   expected_length: Int,
-) -> AssertionResult {
-  let actual_length = list.length(actual_list)
+) -> MatchResult(List(a)) {
+  case value_or_result {
+    MatchFailed(failure) -> MatchFailed(failure)
 
-  case actual_length == expected_length {
-    True -> AssertionOk
+    MatchOk(actual_list) -> {
+      let actual_length = list.length(actual_list)
 
-    False -> {
-      let payload =
-        CollectionFailure(
-          actual: "list with length " <> int.to_string(actual_length),
-          expected: "list with length " <> int.to_string(expected_length),
-          operation: "have_length",
-        )
+      case actual_length == expected_length {
+        True -> MatchOk(actual_list)
 
-      AssertionFailed(AssertionFailure(
-        operator: "have_length",
-        message: "",
-        location: Location("unknown", "unknown", 0),
-        payload: Some(payload),
-      ))
+        False -> {
+          let payload =
+            CollectionFailure(
+              actual: "list with length " <> int.to_string(actual_length),
+              expected: "list with length " <> int.to_string(expected_length),
+              operation: "have_length",
+            )
+
+          MatchFailed(AssertionFailure(
+            operator: "have_length",
+            message: "",
+            payload: Some(payload),
+          ))
+        }
+      }
     }
   }
 }
 
-/// Assert that `actual_list` is empty, returning an AssertionResult.
+/// Assert that `actual_list` is empty, returning a MatchResult.
 ///
 /// Intended usage with pipes:
-///   list |> should.be_empty()
-pub fn be_empty(actual_list: List(a)) -> AssertionResult {
-  case actual_list {
-    [] -> AssertionOk
+///   list |> should |> should.be_empty()
+pub fn be_empty(value_or_result: MatchResult(List(a))) -> MatchResult(List(a)) {
+  case value_or_result {
+    MatchFailed(failure) -> MatchFailed(failure)
 
-    _ -> {
-      let payload =
-        CollectionFailure(
-          actual: string.inspect(actual_list),
-          expected: "[]",
-          operation: "be_empty",
-        )
+    MatchOk(actual_list) -> {
+      case actual_list {
+        [] -> MatchOk(actual_list)
 
-      AssertionFailed(AssertionFailure(
-        operator: "be_empty",
-        message: "",
-        location: Location("unknown", "unknown", 0),
-        payload: Some(payload),
-      ))
+        _ -> {
+          let payload =
+            CollectionFailure(
+              actual: string.inspect(actual_list),
+              expected: "[]",
+              operation: "be_empty",
+            )
+
+          MatchFailed(AssertionFailure(
+            operator: "be_empty",
+            message: "",
+            payload: Some(payload),
+          ))
+        }
+      }
     }
   }
 }

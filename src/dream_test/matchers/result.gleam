@@ -1,88 +1,68 @@
-import gleam/string
-import gleam/option.{Some}
 import dream_test/types.{
-  type AssertionResult, AssertionFailed, AssertionFailure, AssertionOk,
-  Location, ResultFailure,
+  type MatchResult, AssertionFailure, MatchFailed, MatchOk, ResultFailure,
 }
+import gleam/option.{Some}
+import gleam/string
 
-/// Assert that `actual` is Ok, returning an AssertionResult.
+/// Assert that `actual` is Ok, returning the inner value in a MatchResult.
 ///
 /// Intended usage with pipes:
-///   value |> should.be_ok()
-pub fn be_ok(actual: Result(a, e)) -> AssertionResult {
-  case actual {
-    Ok(_) -> AssertionOk
+///   value |> should |> should.be_ok()
+pub fn be_ok(value_or_result: MatchResult(Result(a, e))) -> MatchResult(a) {
+  case value_or_result {
+    MatchFailed(failure) -> MatchFailed(failure)
 
-    Error(error) -> {
-      let payload = ResultFailure(
-        actual: "Error(" <> string.inspect(error) <> ")",
-        expected_ok: True,
-      )
+    MatchOk(actual) -> {
+      case actual {
+        Ok(value) -> MatchOk(value)
 
-      AssertionFailed(
-        AssertionFailure(
-          operator: "be_ok",
-          message: "",
-          location: Location("unknown", "unknown", 0),
-          payload: Some(payload),
-        ),
-      )
+        Error(error) -> {
+          let payload =
+            ResultFailure(
+              actual: "Error(" <> string.inspect(error) <> ")",
+              expected_ok: True,
+            )
+
+          MatchFailed(AssertionFailure(
+            operator: "be_ok",
+            message: "",
+            payload: Some(payload),
+          ))
+        }
+      }
     }
   }
 }
 
-/// Assert that `actual` is Error, returning an AssertionResult.
+/// Assert that `actual` is Error, returning the error value in a MatchResult.
 ///
 /// Intended usage with pipes:
-///   value |> should.be_error()
-pub fn be_error(actual: Result(a, e)) -> AssertionResult {
-  case actual {
-    Error(_) -> AssertionOk
+///   value |> should |> should.be_error()
+pub fn be_error(value_or_result: MatchResult(Result(a, e))) -> MatchResult(e) {
+  case value_or_result {
+    MatchFailed(failure) -> MatchFailed(failure)
 
-    Ok(value) -> {
-      let payload = ResultFailure(
-        actual: "Ok(" <> string.inspect(value) <> ")",
-        expected_ok: False,
-      )
+    MatchOk(actual) -> {
+      case actual {
+        Error(error) -> MatchOk(error)
 
-      AssertionFailed(
-        AssertionFailure(
-          operator: "be_error",
-          message: "",
-          location: Location("unknown", "unknown", 0),
-          payload: Some(payload),
-        ),
-      )
+        Ok(value) -> {
+          let payload =
+            ResultFailure(
+              actual: "Ok(" <> string.inspect(value) <> ")",
+              expected_ok: False,
+            )
+
+          MatchFailed(AssertionFailure(
+            operator: "be_error",
+            message: "",
+            payload: Some(payload),
+          ))
+        }
+      }
     }
   }
 }
 
-/// Assert that `actual` is Ok and the inner value satisfies the given matcher.
-///
-/// Intended usage with pipes:
-///   value |> should.be_ok_and(should.equal(42))
-pub fn be_ok_and(
-  actual: Result(a, e),
-  matcher: fn(a) -> AssertionResult,
-) -> AssertionResult {
-  case actual {
-    Ok(value) -> matcher(value)
-
-    Error(error) -> {
-      let payload = ResultFailure(
-        actual: "Error(" <> string.inspect(error) <> ")",
-        expected_ok: True,
-      )
-
-      AssertionFailed(
-        AssertionFailure(
-          operator: "be_ok_and",
-          message: "",
-          location: Location("unknown", "unknown", 0),
-          payload: Some(payload),
-        ),
-      )
-    }
-  }
-}
-
+// Note: be_ok_and is removed as chaining replaces it naturally:
+// Ok(42) |> should |> be_ok() |> equal(42)

@@ -16,7 +16,6 @@ It is **not** user-facing documentation. It exists to reduce repeated mistakes.
       full_name: ["bootstrap", "runner_core"],
       tags: ["bootstrap", "runner"],
       kind: types.Unit,
-      location: location,
       run: passing_test,
     )
 
@@ -78,8 +77,8 @@ It is **not** user-facing documentation. It exists to reduce repeated mistakes.
 - Do **not** return functions from assertion helpers for general chaining.
   - This project prefers simple, multi-argument functions that are pipe-friendly.
 - Correct pattern for assertions:
-  - `value |> should.equal(expected) |> should.or_fail_with("message")`
-  - Not: `value |> should.equal(expected)(context)`.
+  - `value |> should() |> equal(expected) |> or_fail_with("message")`
+  - Not: `value |> should.equal(expected)` (old pattern without chaining).
 
 ## 8. No Closures, No Anonymous Functions
 

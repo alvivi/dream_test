@@ -1,4 +1,4 @@
-import dream_test/assertions/should.{or_fail_with}
+import dream_test/assertions/should.{equal, fail_with, or_fail_with, should}
 import dream_test/runner.{run_all}
 import dream_test/types.{AssertionOk}
 import dream_test/unit.{type UnitTest, describe, it, to_test_cases}
@@ -23,14 +23,11 @@ pub fn tests() {
         case results {
           [first, ..] -> {
             first.name
-            |> should.equal(expected)
+            |> should()
+            |> equal(expected)
             |> or_fail_with("First test name should match it label")
           }
-          _ -> {
-            False
-            |> should.equal(True)
-            |> or_fail_with("Expected at least one test case")
-          }
+          _ -> fail_with("Expected at least one test case")
         }
       }),
 
@@ -51,14 +48,11 @@ pub fn tests() {
         case results {
           [_, second] -> {
             second.name
-            |> should.equal(expected)
+            |> should()
+            |> equal(expected)
             |> or_fail_with("Second test name should match it label")
           }
-          _ -> {
-            False
-            |> should.equal(True)
-            |> or_fail_with("Expected at least two test cases")
-          }
+          _ -> fail_with("Expected at least two test cases")
         }
       }),
 
@@ -79,14 +73,11 @@ pub fn tests() {
         case results {
           [first, ..] -> {
             first.full_name
-            |> should.equal(expected)
+            |> should()
+            |> equal(expected)
             |> or_fail_with("First full_name should include describe and it")
           }
-          _ -> {
-            False
-            |> should.equal(True)
-            |> or_fail_with("Expected at least one test case")
-          }
+          _ -> fail_with("Expected at least one test case")
         }
       }),
 
@@ -107,14 +98,11 @@ pub fn tests() {
         case results {
           [_, second] -> {
             second.full_name
-            |> should.equal(expected)
+            |> should()
+            |> equal(expected)
             |> or_fail_with("Second full_name should include describe and it")
           }
-          _ -> {
-            False
-            |> should.equal(True)
-            |> or_fail_with("Expected at least two test cases")
-          }
+          _ -> fail_with("Expected at least two test cases")
         }
       }),
     ]),

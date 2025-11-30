@@ -1,6 +1,6 @@
 import dream_test/unit.{describe, it}
-import dream_test/assertions/should.{or_fail_with}
-import dream_test/types.{type AssertionFailure, AssertionFailure, Location, Passed, Failed, status_from_failures}
+import dream_test/assertions/should.{equal, or_fail_with, should}
+import dream_test/types.{type AssertionFailure, AssertionFailure, Passed, Failed, status_from_failures}
 import gleam/option.{None}
 
 pub fn tests() {
@@ -16,7 +16,8 @@ pub fn tests() {
         
         // Assert
         result
-        |> should.equal(expected)
+        |> should()
+        |> equal(expected)
         |> or_fail_with("Empty failures should yield Passed status")
       }),
       
@@ -25,7 +26,6 @@ pub fn tests() {
         let failure = AssertionFailure(
           operator: "equal",
           message: "",
-          location: Location("mod", "file.gleam", 10),
           payload: None,
         )
         let non_empty_failures = [failure]
@@ -36,7 +36,8 @@ pub fn tests() {
         
         // Assert
         result
-        |> should.equal(expected)
+        |> should()
+        |> equal(expected)
         |> or_fail_with("Non-empty failures should yield Failed status")
       }),
     ]),

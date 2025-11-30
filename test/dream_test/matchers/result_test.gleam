@@ -1,77 +1,100 @@
-import dream_test/assertions/should
-import dream_test/types.{AssertionFailed, AssertionOk}
+import dream_test/assertions/should.{be_error, be_ok, equal, fail_with, or_fail_with, should}
+import dream_test/types.{AssertionOk, MatchFailed, MatchOk}
 import dream_test/unit.{describe, it}
 
 pub fn tests() {
   describe("Result Matchers", [
     describe("be_ok", [
-      it("returns AssertionOk when value is Ok", fn() {
+      it("returns MatchOk with inner value when value is Ok", fn() {
         let result: Result(Int, String) = Ok(42)
-        let check = result |> should.be_ok()
+        let check = result |> should() |> be_ok()
 
         case check {
-          AssertionOk -> AssertionOk
-          AssertionFailed(_) -> should.fail_with("be_ok should pass for Ok")
+          MatchOk(value) ->
+            value
+            |> should()
+            |> equal(42)
+            |> or_fail_with("should equal 42")
+          MatchFailed(_) -> fail_with("be_ok should pass for Ok")
         }
       }),
-      it("returns AssertionFailed when value is Error", fn() {
+      it("returns MatchFailed when value is Error", fn() {
         let result: Result(Int, String) = Error("failed")
-        let check = result |> should.be_ok()
+        let check = result |> should() |> be_ok()
 
         case check {
-          AssertionFailed(_) -> AssertionOk
-          AssertionOk -> should.fail_with("be_ok should fail for Error")
+          MatchFailed(_) -> AssertionOk
+          MatchOk(_) -> fail_with("be_ok should fail for Error")
         }
       }),
     ]),
     describe("be_error", [
-      it("returns AssertionOk when value is Error", fn() {
+      it("returns MatchOk with error value when value is Error", fn() {
         let result: Result(Int, String) = Error("failed")
-        let check = result |> should.be_error()
+        let check = result |> should() |> be_error()
 
         case check {
-          AssertionOk -> AssertionOk
-          AssertionFailed(_) -> should.fail_with("be_error should pass for Error")
+          MatchOk(error) ->
+            error
+            |> should()
+            |> equal("failed")
+            |> or_fail_with("should equal 'failed'")
+          MatchFailed(_) -> fail_with("be_error should pass for Error")
         }
       }),
-      it("returns AssertionFailed when value is Ok", fn() {
+      it("returns MatchFailed when value is Ok", fn() {
         let result: Result(Int, String) = Ok(42)
-        let check = result |> should.be_error()
+        let check = result |> should() |> be_error()
 
         case check {
-          AssertionFailed(_) -> AssertionOk
-          AssertionOk -> should.fail_with("be_error should fail for Ok")
+          MatchFailed(_) -> AssertionOk
+          MatchOk(_) -> fail_with("be_error should fail for Ok")
         }
       }),
     ]),
-    describe("be_ok_and", [
-      it("returns AssertionOk when Ok and inner value matches", fn() {
+    describe("chaining", [
+      it("chains be_ok with equal", fn() {
         let result: Result(Int, String) = Ok(42)
-        let check = result |> should.be_ok_and(fn(v) { should.equal(v, 42) })
+        let check =
+          result
+          |> should()
+          |> be_ok()
+          |> equal(42)
 
         case check {
-          AssertionOk -> AssertionOk
-          AssertionFailed(_) ->
-            should.fail_with("be_ok_and should pass for Ok with matching value")
+          MatchOk(_) -> AssertionOk
+          MatchFailed(_) ->
+            fail_with("chaining be_ok |> equal should pass")
         }
       }),
-      it("returns AssertionFailed when Ok but inner value differs", fn() {
+      it("fails chain if inner value differs", fn() {
         let result: Result(Int, String) = Ok(42)
-        let check = result |> should.be_ok_and(fn(v) { should.equal(v, 100) })
+        let check =
+          result
+          |> should()
+          |> be_ok()
+          |> equal(100)
 
         case check {
-          AssertionFailed(_) -> AssertionOk
-          AssertionOk ->
-            should.fail_with("be_ok_and should fail for Ok with non-matching value")
+          MatchFailed(_) -> AssertionOk
+          MatchOk(_) ->
+            fail_with(
+              "chaining be_ok |> equal should fail if value differs",
+            )
         }
       }),
-      it("returns AssertionFailed when value is Error", fn() {
+      it("fails chain if value is Error", fn() {
         let result: Result(Int, String) = Error("failed")
-        let check = result |> should.be_ok_and(fn(v) { should.equal(v, 42) })
+        let check =
+          result
+          |> should()
+          |> be_ok()
+          |> equal(42)
 
         case check {
-          AssertionFailed(_) -> AssertionOk
-          AssertionOk -> should.fail_with("be_ok_and should fail for Error")
+          MatchFailed(_) -> AssertionOk
+          MatchOk(_) ->
+            fail_with("chaining be_ok |> equal should fail for Error")
         }
       }),
     ]),

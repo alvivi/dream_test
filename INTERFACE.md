@@ -19,21 +19,23 @@ This is the **intended** interface for test authors: minimal ceremony, close to 
 ```gleam
 import gleam/int
 import dream_test/unit.{describe, it}
-import dream_test/assertions/should.{or_fail_with}
+import dream_test/assertions/should.{equal, or_fail_with, should}
 
 pub fn tests() {
   describe("Math & Parsing", [
     it("adds numbers", fn() {
       let sum = 1 + 2
 
-  sum
-  |> should.equal(3)
-  |> or_fail_with("1 + 2 should equal 3")
+      sum
+      |> should()
+      |> equal(3)
+      |> or_fail_with("1 + 2 should equal 3")
     }),
 
     it("parses integers", fn() {
       int.parse("123")
-      |> should.equal(123)
+      |> should()
+      |> equal(123)
       |> or_fail_with("Should parse 123 from string")
     }),
   ])
@@ -44,7 +46,7 @@ Key ideas:
 
 - Test bodies are **inline** anonymous functions with no explicit context argument.
 - You define tests with `describe` and `it` from `dream_test/unit` and do **not** see `TestCase`, `UnitTest`, or runner details.
-- Assertions use `should.equal` and `should.or_fail_with` from the `dream_test/assertions/should` module.
+- Assertions use the chaining pattern: `value |> should() |> equal(expected) |> or_fail_with("message")` from the `dream_test/assertions/should` module.
 
 The runner/CLI (or current harness) is responsible for discovering `tests()` functions in test modules, converting the description tree into concrete test cases, and executing them.
 
@@ -58,7 +60,7 @@ The **unit test DSL** lives in `dream_test/unit`.
 
 ```gleam
 import dream_test/unit.{describe, it}
-import dream_test/assertions/should
+import dream_test/assertions/should.{equal, or_fail_with, should}
 ```
 
 ### 2.2 Writing inline test bodies
@@ -70,13 +72,15 @@ pub fn tests() {
   describe("Math", [
     it("adds numbers", fn() {
       add(1, 2)
-      |> should.equal(3)
+      |> should()
+      |> equal(3)
       |> or_fail_with("1 + 2 should equal 3")
     }),
 
     it("subtracts numbers", fn() {
       subtract(4, 1)
-      |> should.equal(3)
+      |> should()
+      |> equal(3)
       |> or_fail_with("4 - 1 should equal 3")
     }),
   ])
@@ -89,9 +93,10 @@ You can nest `describe` blocks to build hierarchical names:
 pub fn tests() {
   describe("Math", [
     describe("addition", [
-      it("adds positive numbers", fn(context: TestContext(Int)) {
+      it("adds positive numbers", fn() {
         add(1, 2)
-        |> should.equal(context, 3)
+        |> should()
+        |> equal(3)
         |> or_fail_with("1 + 2 should equal 3")
       }),
     ]),
@@ -110,17 +115,18 @@ Assertions are provided by `dream_test/assertions/should` and operate on values,
 Following the project standards:
 
 ```gleam
-import dream_test/assertions/should.{or_fail_with}
+import dream_test/assertions/should.{equal, or_fail_with, should}
 ```
 
-### 3.2 Pattern: equal + or_fail_with
+### 3.2 Pattern: should() + equal + or_fail_with
 
 ```gleam
 fn greets_user(name: String) {
   let greeting = make_greeting(name)
 
   greeting
-  |> should.equal("Hello, " <> name)
+  |> should()
+  |> equal("Hello, " <> name)
   |> or_fail_with("Should greet the user by name")
 }
 ```
@@ -187,46 +193,27 @@ The `dream_test/types` module defines shared data types used across the framewor
 
 ### 1.1 Importing and constructing core types
 
-```gleam
-import dream_test/types
-
-pub fn example_location() {
-  let location = types.Location(
-    module_: "my_module",
-    file: "test/my_module_test.gleam",
-    line: 42,
-  )
-
-  location
-}
-```
-
-You can also import specific names if you prefer unqualified usage:
+You can import specific names if you prefer unqualified usage:
 
 ```gleam
-import dream_test/types.{Location, Status, AssertionFailure, TestResult}
+import dream_test/types.{Status, AssertionFailure, TestResult}
 
 pub fn example_values() {
-  let location = Location("example_module", "example.gleam", 10)
-
   let status = Status.Passed
 
-  let failure: AssertionFailure(Int) = AssertionFailure(
-    actual: 1,
-    expected: 2,
+  let failure = AssertionFailure(
     operator: "equal",
     message: "1 should equal 2 (example)",
-    location: location,
+    payload: Some(EqualityFailure(actual: "1", expected: "2")),
   )
 
-  let result: TestResult(Int) = TestResult(
+  let result = TestResult(
     name: "example test",
     full_name: ["Example", "test"],
     status: status,
     duration_ms: 0,
     tags: ["example"],
     failures: [failure],
-    location: location,
     kind: types.Unit,
   )
 
@@ -237,21 +224,18 @@ pub fn example_values() {
 ### 1.2 Deriving status from failures
 
 ```gleam
-import dream_test/types.{type AssertionFailure, AssertionFailure, Status, status_from_failures}
+import dream_test/types.{type AssertionFailure, AssertionFailure, Status, status_from_failures, EqualityFailure}
+import gleam/option.{Some}
 
 pub fn example_status() {
-  let location = Location("example_module", "example.gleam", 10)
-
-  let no_failures: List(AssertionFailure(Int)) = []
+  let no_failures: List(AssertionFailure) = []
   let empty_status = status_from_failures(no_failures)
   // empty_status == Status.Passed
 
   let some_failure = AssertionFailure(
-    actual: 1,
-    expected: 2,
     operator: "equal",
     message: "",
-    location: location,
+    payload: Some(EqualityFailure(actual: "1", expected: "2")),
   )
 
   let non_empty_failures = [some_failure]
@@ -272,19 +256,16 @@ pub fn example_status() {
 
 ```gleam
 import dream_test/context.{type TestContext, TestContext, new, failures, add_failure}
-import dream_test/types.{AssertionFailure, Location}
+import dream_test/types.{AssertionFailure, EqualityFailure}
+import gleam/option.{Some}
 
 pub fn context_example() {
-  let initial_context: TestContext(Int) = new()
-
-  let location = Location("context_example", "example.gleam", 0)
+  let initial_context: TestContext = new()
 
   let failure = AssertionFailure(
-    actual: 1,
-    expected: 2,
     operator: "equal",
     message: "Numbers did not match",
-    location: location,
+    payload: Some(EqualityFailure(actual: "1", expected: "2")),
   )
 
   let updated_context = add_failure(initial_context, failure)
@@ -373,37 +354,33 @@ Currently implemented:
 ```gleam
 import dream_test/context.{type TestContext, add_failure}
 import dream_test/bootstrap/core_assert
-import dream_test/types.{AssertionFailure, Location, Unit, Passed, Failed}
+import dream_test/types.{AssertionFailure, EqualityFailure, Unit, Passed, Failed}
+import gleam/option.{Some}
 import dream_test/runner.{SingleTestConfig, run_single_test}
 
-fn example_passing_test(context: TestContext(Int)) -> TestContext(Int) {
-  context
+fn example_passing_test() -> AssertionResult {
+  AssertionOk
 }
 
-fn example_failing_test(context: TestContext(Int)) -> TestContext(Int) {
+fn example_failing_test() -> AssertionResult {
   let failure = AssertionFailure(
-    actual: 1,
-    expected: 2,
     operator: "equal",
     message: "",
-    location: Location("example_runner", "example_runner.gleam", 0),
+    payload: Some(EqualityFailure(actual: "1", expected: "2")),
   )
 
-  add_failure(context, failure)
+  AssertionFailed(failure)
 }
 
 pub fn example_runner_single() {
-  let module_name = "example_runner"
   let common_full_name = ["examples", "runner"]
   let common_tags = ["example", "runner"]
-  let common_location = Location(module_name, "example_runner.gleam", 0)
 
   let passing_config = SingleTestConfig(
     name: "passing test",
     full_name: common_full_name,
     tags: common_tags,
     kind: Unit,
-    location: common_location,
     run: example_passing_test,
   )
 
@@ -419,38 +396,33 @@ pub fn example_runner_single() {
 ### 4.2 Running a small suite with `run_all`
 
 ```gleam
-import dream_test/context.{type TestContext, add_failure}
-import dream_test/types.{AssertionFailure, Location, Unit}
+import dream_test/types.{AssertionFailure, EqualityFailure, Unit}
+import gleam/option.{Some}
 import dream_test/runner.{type TestCase, TestCase, SingleTestConfig, run_all}
 
-fn suite_passing_test(context: TestContext(Int)) -> TestContext(Int) {
-  context
+fn suite_passing_test() -> AssertionResult {
+  AssertionOk
 }
 
-fn suite_failing_test(context: TestContext(Int)) -> TestContext(Int) {
+fn suite_failing_test() -> AssertionResult {
   let failure = AssertionFailure(
-    actual: 1,
-    expected: 2,
     operator: "equal",
     message: "",
-    location: Location("example_runner_suite", "example_runner_suite.gleam", 0),
+    payload: Some(EqualityFailure(actual: "1", expected: "2")),
   )
 
-  add_failure(context, failure)
+  AssertionFailed(failure)
 }
 
 pub fn example_runner_suite() {
-  let module_name = "example_runner_suite"
   let common_full_name = ["examples", "runner_suite"]
   let common_tags = ["example", "runner"]
-  let common_location = Location(module_name, "example_runner_suite.gleam", 0)
 
   let passing_config = SingleTestConfig(
     name: "passing test",
     full_name: common_full_name,
     tags: common_tags,
     kind: Unit,
-    location: common_location,
     run: suite_passing_test,
   )
 
@@ -459,11 +431,10 @@ pub fn example_runner_suite() {
     full_name: common_full_name,
     tags: common_tags,
     kind: Unit,
-    location: common_location,
     run: suite_failing_test,
   )
 
-  let test_cases: List(TestCase(Int)) = [
+  let test_cases: List(TestCase) = [
     TestCase(passing_config),
     TestCase(failing_config),
   ]
@@ -533,55 +504,38 @@ This is equivalent in shape to `bootstrap_unit_dsl.gleam`, but written as a reus
 This section shows how a user could **today**:
 
 - Define a small test tree using the unit DSL.
-- Use `should.equal` and `or_fail_with` for assertions.
+- Use the chaining pattern `should() |> equal() |> or_fail_with()` for assertions.
 - Run those tests through the runner.
 
 ```gleam
 import gleam/int
-import dream_test/types.{Location, Unit}
-import dream_test/context.{type TestContext, new}
-import dream_test/assertions/should.{or_fail_with}
-import dream_test/unit.{describe, it, type UnitTest, to_test_cases}
-import dream_test/runner.{type TestCase, run_all}
+import dream_test/assertions/should.{equal, or_fail_with, should, fail_with}
+import dream_test/unit.{describe, it}
 
-fn adds_numbers(context: TestContext(Int)) -> TestContext(Int) {
-  let sum = 1 + 2
+pub fn tests() {
+  describe("Math & Parsing", [
+    it("adds numbers", fn() {
+      let sum = 1 + 2
 
-  sum
-  |> should.equal(context, 3)
-  |> or_fail_with("1 + 2 should equal 3")
-}
+      sum
+      |> should()
+      |> equal(3)
+      |> or_fail_with("1 + 2 should equal 3")
+    }),
 
-fn parses_int(context: TestContext(Int)) -> TestContext(Int) {
-  let parsed = int.parse("123")
+    it("parses integers", fn() {
+      case int.parse("123") {
+        Ok(value) ->
+          value
+          |> should()
+          |> equal(123)
+          |> or_fail_with("Should parse 123 from string")
 
-  case parsed {
-    Ok(value) ->
-      value
-      |> should.equal(123)
-      |> or_fail_with("Should parse 123 from string")
-
-    Error(_) ->
-      // Force a failure by comparing mismatched values
-      0
-      |> should.equal(1)
-      |> or_fail_with("Parsing int from string failed unexpectedly")
-  }
-}
-
-pub fn run_example_suite() {
-  let tests: UnitTest(Int) =
-    describe("Math & Parsing", [
-      it("adds numbers", adds_numbers),
-      it("parses integers", parses_int),
-    ])
-
-  let test_cases: List(TestCase(Int)) =
-    to_test_cases("example_suite", tests)
-
-  let results = run_all(test_cases)
-
-  results
+        Error(_) ->
+          fail_with("Parsing int from string failed unexpectedly")
+      }
+    }),
+  ])
 }
 ```
 

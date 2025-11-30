@@ -3,7 +3,7 @@
 This document expands on `DESIGN.md` with **concrete shapes and examples** for the main parts of the framework.
 
 - Pipe-first assertions (`should`)
-- Core types (`Location`, `AssertionFailure`, `TestResult`, `TestCase`)
+- Core types (`AssertionFailure`, `TestResult`, `TestCase`)
 - Runner and sandboxed supervisors
 - Unit test DSL (`describe` / `it` / tags / hooks)
 - Gherkin integration with `.feature` files and step definitions
@@ -14,20 +14,12 @@ This document expands on `DESIGN.md` with **concrete shapes and examples** for t
 ---
 
 ## 1. Core Types
-+
-+Core types live in the `dream_test/types` module.
-+
-+### 1.1 Location, status, tags
+
+Core types live in the `dream_test/types` module.
+
+### 1.1 Status and tags
 
 ```gleam
-pub type Location {
-  Location(
-    module_: String,
-    file: String,
-    line: Int,
-  )
-}
-
 pub type Status {
   Passed
   Failed
@@ -43,13 +35,11 @@ pub type Tag =
 ### 1.2 AssertionFailure
 
 ```gleam
-pub type AssertionFailure(a) {
+pub type AssertionFailure {
   AssertionFailure(
-    actual: a,
-    expected: a,
     operator: String,      // "equal", "contain", "be_greater_than", etc.
     message: String,       // user or default message
-    location: Location,
+    payload: Option(FailurePayload),  // structured failure details
   )
 }
 ```
@@ -60,11 +50,9 @@ Examples:
 
 ```gleam
 AssertionFailure(
-  actual: "Hi, Gleam",
-  expected: "Hello, Gleam",
   operator: "equal",
   message: "Should have greeted properly",
-  location: Location("user_test", "test/user_test.gleam", 12),
+  payload: Some(EqualityFailure(actual: "Hi, Gleam", expected: "Hello, Gleam")),
 )
 ```
 
@@ -77,46 +65,47 @@ pub type TestKind {
   GherkinScenario(String) // scenario id or path anchor
 }
 
-pub type TestResult(a) {
+pub type TestResult {
   TestResult(
     name: String,
     full_name: List(String),  // e.g. ["User", "registration", "creates a user"]
     status: Status,
     duration_ms: Int,
     tags: List(Tag),
-    failures: List(AssertionFailure(a)),
-    location: Location,
+    failures: List(AssertionFailure),
     kind: TestKind,
   )
 }
 
-pub type TestCase(a) {
-  TestCase(
+pub type SingleTestConfig {
+  SingleTestConfig(
     name: String,
     full_name: List(String),
     tags: List(Tag),
-    location: Location,
     kind: TestKind,
-    run: fn() -> TestResult(a),
+    run: fn() -> AssertionResult,
   )
+}
+
+pub type TestCase {
+  TestCase(SingleTestConfig)
 }
 ```
 
 **Example:** a simple unit test case:
 
 ```gleam
-let location = Location("user_test", "test/user_test.gleam", 10)
-
-let test_case = TestCase(
+let config = SingleTestConfig(
   name: "creates a user with valid data",
   full_name: ["User", "registration", "creates a user with valid data"],
   tags: ["unit", "user"],
-  location: location,
   kind: Unit,
   run: fn() {
-    // Test body and assertions here; produce TestResult
+    // Test body and assertions here; produce AssertionResult
   },
 )
+
+let test_case = TestCase(config)
 ```
 
 ---
@@ -210,11 +199,9 @@ pub fn equal(expected: a) -> fn(TestContext(a), a) -> TestContext(a) {
 
       False ->
         let failure = AssertionFailure(
-          actual: actual,
-          expected: expected,
           operator: "equal",
           message: "",
-          location: /* captured via macros or passed in */, 
+          payload: Some(EqualityFailure(actual: inspect_value(actual), expected: inspect_value(expected))),
         )
 
         TestContext(failures: [failure, ..ctx.failures])
@@ -465,7 +452,6 @@ pub type GherkinStep {
   GherkinStep(
     text: String,
     step_type: StepType,   // And/But normalized to previous type
-    location: Location,
   )
 }
 
@@ -475,7 +461,6 @@ pub type GherkinScenario {
     scenario_name: String,
     tags: List(Tag),
     steps: List(GherkinStep),
-    location: Location,
   )
 }
 ```
@@ -483,16 +468,17 @@ pub type GherkinScenario {
 The Gherkin parser converts `.feature` files into `GherkinScenario` values. The Gherkin runner then creates a `TestCase` per scenario:
 
 ```gleam
-let tc = TestCase(
+let config = SingleTestConfig(
   name: scenario.scenario_name,
   full_name: [scenario.feature_name, scenario.scenario_name],
   tags: scenario.tags ++ ["integration"],
-  location: scenario.location,
   kind: GherkinScenario(scenario_id),
   run: fn() {
     // apply background + steps by matching each GherkinStep to a StepDefinition
   },
 )
+
+let tc = TestCase(config)
 ```
 
 ---

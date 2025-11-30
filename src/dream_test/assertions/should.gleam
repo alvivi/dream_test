@@ -6,21 +6,27 @@ import dream_test/matchers/option
 import dream_test/matchers/result
 import dream_test/matchers/string
 import dream_test/types.{
-  type AssertionResult, AssertionFailed, AssertionFailure, AssertionOk, Location,
+  type AssertionResult, type MatchResult, AssertionFailed, AssertionFailure,
+  AssertionOk, MatchFailed, MatchOk,
 }
 import gleam/option as gleam_option
 
 /// Unified public API for assertions.
 ///
 /// This module re-exports all matchers from the internal matchers/ directory
-/// with the `should.*` naming convention for test readability.
+/// with the `should.*` naming convention.
 ///
-/// Users import this module and use assertions like:
-///   value |> should.equal(expected)
-///   flag |> should.be_true()
-///   result |> should.be_ok()
-// Re-export equality matchers
+/// Usage:
+///   value |> should |> should.equal(expected)
+///   Some(1) |> should |> should.be_some() |> should.equal(1)
+/// Start an assertion chain.
+///
+/// This wraps a value in a `MatchResult` so it can be piped into matchers.
+pub fn should(value: a) -> MatchResult(a) {
+  MatchOk(value)
+}
 
+// Re-export equality matchers
 pub const equal = equality.equal
 
 pub const not_equal = equality.not_equal
@@ -35,14 +41,10 @@ pub const be_some = option.be_some
 
 pub const be_none = option.be_none
 
-pub const be_some_and = option.be_some_and
-
 // Re-export result matchers
 pub const be_ok = result.be_ok
 
 pub const be_error = result.be_error
-
-pub const be_ok_and = result.be_ok_and
 
 // Re-export collection matchers
 pub const contain = collection.contain
@@ -80,13 +82,15 @@ pub const contain_string = string.contain_string
 /// Override the message on a failed assertion.
 /// If the result is already Ok, it is returned unchanged.
 ///
+/// This is a terminal operation that returns an AssertionResult.
+///
 /// Intended usage with pipes:
-///   value |> should.equal(expected) |> should.or_fail_with("message")
-pub fn or_fail_with(result: AssertionResult, message: String) -> AssertionResult {
+///   value |> should |> should.equal(expected) |> should.or_fail_with("message")
+pub fn or_fail_with(result: MatchResult(a), message: String) -> AssertionResult {
   case result {
-    AssertionOk -> AssertionOk
+    MatchOk(_) -> AssertionOk
 
-    AssertionFailed(failure) ->
+    MatchFailed(failure) ->
       AssertionFailed(AssertionFailure(..failure, message: message))
   }
 }
@@ -102,7 +106,6 @@ pub fn fail_with(message: String) -> AssertionResult {
   AssertionFailed(AssertionFailure(
     operator: "fail_with",
     message: message,
-    location: Location("unknown", "unknown", 0),
     payload: gleam_option.None,
   ))
 }

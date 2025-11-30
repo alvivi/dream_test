@@ -1,6 +1,6 @@
 import dream_test/unit.{describe, it}
-import dream_test/assertions/should.{or_fail_with}
-import dream_test/types.{TestResult, AssertionFailure, EqualityFailure, Location, Passed, Failed, Unit}
+import dream_test/assertions/should.{equal, or_fail_with, should}
+import dream_test/types.{TestResult, AssertionFailure, EqualityFailure, Passed, Failed, Unit}
 import dream_test/reporter/bdd.{format}
 import gleam/option.{Some}
 
@@ -16,14 +16,12 @@ pub fn tests() {
           duration_ms: 0,
           tags: [],
           failures: [],
-          location: Location("math_test", "math_test.gleam", 0),
           kind: Unit,
         )
         
         let failure = AssertionFailure(
           operator: "equal",
           message: "1 + 2 should equal 3",
-          location: Location("math_test", "math_test.gleam", 0),
           payload: Some(EqualityFailure(actual: "4", expected: "3")),
         )
         
@@ -34,7 +32,6 @@ pub fn tests() {
           duration_ms: 0,
           tags: [],
           failures: [failure],
-          location: Location("math_test", "math_test.gleam", 0),
           kind: Unit,
         )
         
@@ -56,7 +53,8 @@ pub fn tests() {
         
         // Assert
         result
-        |> should.equal(expected)
+        |> should()
+        |> equal(expected)
         |> or_fail_with("bdd.format should render a basic BDD-style report")
       }),
     ]),
