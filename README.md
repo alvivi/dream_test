@@ -16,9 +16,9 @@
 
 <br>
 
-> 📄 **[See full example](https://github.com/TrustBound/dream_test/blob/feature/example-snippets/examples/string_app/test/string_app_test.gleam)**
+> 📄 **[See full example](https://github.com/TrustBound/dream_test/blob/b74c954ecc4e00444f6d5c72317af4d8d88b6812/examples/string_app/test/string_app_test.gleam)**
 
-https://github.com/TrustBound/dream_test/blob/feature/example-snippets/examples/string_app/test/string_app_test.gleam#L8-L52
+https://github.com/TrustBound/dream_test/blob/b74c954ecc4e00444f6d5c72317af4d8d88b6812/examples/string_app/test/string_app_test.gleam#L8-L52
 
 ```
 String utilities
@@ -64,9 +64,9 @@ dream_test = "~> 1.0"
 
 ### 1. Write tests with `describe` and `it`
 
-> 📄 **[See full working example](https://github.com/TrustBound/dream_test/blob/feature/example-snippets/examples/math_app/test/math_app_test.gleam)**
+> 📄 **[See full working example](https://github.com/TrustBound/dream_test/blob/b74c954ecc4e00444f6d5c72317af4d8d88b6812/examples/math_app/test/math_app_test.gleam)**
 
-https://github.com/TrustBound/dream_test/blob/feature/example-snippets/examples/math_app/test/math_app_test.gleam#L1-L39
+https://github.com/TrustBound/dream_test/blob/b74c954ecc4e00444f6d5c72317af4d8d88b6812/examples/math_app/test/math_app_test.gleam#L1-L39
 
 ### 2. Run with gleam test
 
@@ -99,9 +99,9 @@ value |> should() |> matcher() |> or_fail_with("message")
 
 Matchers can be chained. Each one passes its unwrapped value to the next:
 
-> 📄 **[See working example](https://github.com/TrustBound/dream_test/blob/feature/example-snippets/examples/cache_app/test/cache_app_test.gleam#L34-L48)** — Unwrap `Some`, then check the value
+> 📄 **[See working example](https://github.com/TrustBound/dream_test/blob/b74c954ecc4e00444f6d5c72317af4d8d88b6812/examples/cache_app/test/cache_app_test.gleam#L34-L48)** — Unwrap `Some`, then check the value
 
-https://github.com/TrustBound/dream_test/blob/feature/example-snippets/examples/cache_app/test/cache_app_test.gleam#L42-L47
+https://github.com/TrustBound/dream_test/blob/b74c954ecc4e00444f6d5c72317af4d8d88b6812/examples/cache_app/test/cache_app_test.gleam#L42-L47
 
 ### Available matchers
 
@@ -135,9 +135,9 @@ case result {
 Setup and teardown logic for your tests. Dream_test supports four lifecycle hooks
 that let you run code before and after tests.
 
-> 📄 **[See working example](https://github.com/TrustBound/dream_test/blob/feature/example-snippets/examples/cache_app/test/cache_app_test.gleam#L410-L452)** — All four hooks in action
+> 📄 **[See working example](https://github.com/TrustBound/dream_test/blob/b74c954ecc4e00444f6d5c72317af4d8d88b6812/examples/cache_app/test/cache_app_test.gleam#L410-L452)** — All four hooks in action
 
-https://github.com/TrustBound/dream_test/blob/feature/example-snippets/examples/cache_app/test/cache_app_test.gleam#L410-L452
+https://github.com/TrustBound/dream_test/blob/b74c954ecc4e00444f6d5c72317af4d8d88b6812/examples/cache_app/test/cache_app_test.gleam#L410-L452
 
 ### Hook Types
 
@@ -159,22 +159,22 @@ Choose the mode based on which hooks you need:
 
 **Flat mode** — simpler, faster; use when you only need per-test setup:
 
-> 📄 **[See working example](https://github.com/TrustBound/dream_test/blob/feature/example-snippets/examples/math_app/test/math_app_test.gleam#L34-L39)**
+> 📄 **[See working example](https://github.com/TrustBound/dream_test/blob/b74c954ecc4e00444f6d5c72317af4d8d88b6812/examples/math_app/test/math_app_test.gleam#L34-L39)**
 
-https://github.com/TrustBound/dream_test/blob/feature/example-snippets/examples/math_app/test/math_app_test.gleam#L34-L39
+https://github.com/TrustBound/dream_test/blob/b74c954ecc4e00444f6d5c72317af4d8d88b6812/examples/math_app/test/math_app_test.gleam#L34-L39
 
 **Suite mode** — preserves group structure; use when you need once-per-group setup:
 
-> 📄 **[See working example](https://github.com/TrustBound/dream_test/blob/feature/example-snippets/examples/cache_app/test/cache_app_test.gleam#L497-L507)**
+> 📄 **[See working example](https://github.com/TrustBound/dream_test/blob/b74c954ecc4e00444f6d5c72317af4d8d88b6812/examples/cache_app/test/cache_app_test.gleam#L497-L507)**
 
-https://github.com/TrustBound/dream_test/blob/feature/example-snippets/examples/cache_app/test/cache_app_test.gleam#L497-L507
+https://github.com/TrustBound/dream_test/blob/b74c954ecc4e00444f6d5c72317af4d8d88b6812/examples/cache_app/test/cache_app_test.gleam#L497-L507
 
 ### Hook Inheritance
 
 Nested `describe` blocks inherit parent hooks. Hooks run outer-to-inner for
 setup, inner-to-outer for teardown:
 
-> 📄 **[See nested describe example](https://github.com/TrustBound/dream_test/blob/feature/example-snippets/examples/cache_app/test/cache_app_test.gleam#L457-L489)**
+> 📄 **[See nested describe example](https://github.com/TrustBound/dream_test/blob/b74c954ecc4e00444f6d5c72317af4d8d88b6812/examples/cache_app/test/cache_app_test.gleam#L457-L489)**
 
 ```gleam
 // Output order: 1. outer setup → 2. inner setup → (test) → 3. inner teardown → 4. outer teardown
