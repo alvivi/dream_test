@@ -54,7 +54,7 @@ Calculator
 3 tests, 0 failures
 ```
 
-<sub>🧪 [Tested source](examples/snippets/test/snippets_test.gleam#L25-L46)</sub>
+<sub>🧪 [Tested source](examples/snippets/test/hero.gleam)</sub>
 
 ---
 
@@ -92,15 +92,9 @@ dream_test = "~> 1.0"
 import dream_test/unit.{describe, it, to_test_cases}
 import dream_test/runner.{run_all}
 import dream_test/reporter/bdd.{report}
-import dream_test/assertions/should.{should, equal, be_some, or_fail_with}
+import dream_test/assertions/should.{should, equal, or_fail_with}
 import gleam/io
-
-pub fn main() {
-  tests()
-  |> to_test_cases("my_app_test")
-  |> run_all()
-  |> report(io.println)
-}
+import gleam/string
 
 pub fn tests() {
   describe("String utilities", [
@@ -111,17 +105,24 @@ pub fn tests() {
       |> equal("hello")
       |> or_fail_with("Should remove surrounding whitespace")
     }),
-
     it("finds substrings", fn() {
       "hello world"
-      |> string.find("world")
+      |> string.contains("world")
       |> should()
-      |> be_some()
+      |> equal(True)
       |> or_fail_with("Should find 'world' in string")
     }),
   ])
 }
+
+pub fn main() {
+  to_test_cases("my_app_test", tests())
+  |> run_all()
+  |> report(io.print)
+}
 ```
+
+<sub>🧪 [Tested source](examples/snippets/test/quick_start.gleam)</sub>
 
 ### 2. Run with gleam test
 
@@ -169,7 +170,7 @@ Ok("success")
 |> or_fail_with("Should be Ok with 'success'")
 ```
 
-<sub>🧪 [Tested source](examples/snippets/test/snippets_test.gleam#L55-L70)</sub>
+<sub>🧪 [Tested source](examples/snippets/test/chaining.gleam)</sub>
 
 ### Available matchers
 
@@ -196,7 +197,7 @@ case result {
 }
 ```
 
-<sub>🧪 [Tested source](examples/snippets/test/snippets_test.gleam#L119-L125)</sub>
+<sub>🧪 [Tested source](examples/snippets/test/explicit_failures.gleam)</sub>
 
 ---
 
@@ -235,7 +236,7 @@ describe("Database tests", [
 ])
 ```
 
-<sub>🧪 [Tested source](examples/snippets/test/snippets_test.gleam#L80-L109)</sub>
+<sub>🧪 [Tested source](examples/snippets/test/lifecycle_hooks.gleam)</sub>
 
 ### Hook Types
 
@@ -277,7 +278,7 @@ to_test_suite("my_test", tests())
 |> report(io.print)
 ```
 
-<sub>🧪 [Tested source](examples/snippets/test/snippets_test.gleam#L209-L221)</sub>
+<sub>🧪 [Tested source](examples/snippets/test/execution_modes.gleam)</sub>
 
 ### Hook Inheritance
 
@@ -312,7 +313,7 @@ describe("Outer", [
 // Output: 1. outer setup → 2. inner setup → (test) → 3. inner teardown → 4. outer teardown
 ```
 
-<sub>🧪 [Tested source](examples/snippets/test/snippets_test.gleam#L134-L157)</sub>
+<sub>🧪 [Tested source](examples/snippets/test/hook_inheritance.gleam)</sub>
 
 ### Hook Failure Behavior
 
@@ -339,7 +340,7 @@ describe("Handles failures", [
 ])
 ```
 
-<sub>🧪 [Tested source](examples/snippets/test/snippets_test.gleam#L169-L179)</sub>
+<sub>🧪 [Tested source](examples/snippets/test/hook_failure.gleam)</sub>
 
 ---
 
@@ -381,7 +382,7 @@ run_all_with_config(config, test_cases)
 |> report(io.print)
 ```
 
-<sub>🧪 [Tested source](examples/snippets/test/snippets_test.gleam#L187-L194)</sub>
+<sub>🧪 [Tested source](examples/snippets/test/runner_config.gleam)</sub>
 
 ---
 
