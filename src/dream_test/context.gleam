@@ -22,3 +22,5 @@ pub fn add_failure(context: TestContext, failure: AssertionFailure) -> TestConte
   TestContext(failures: [failure, ..context.failures])
 }
 
+
+

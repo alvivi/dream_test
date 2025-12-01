@@ -54,7 +54,7 @@ User authentication
 ```toml
 # gleam.toml
 [dev-dependencies]
-dream_test = "~> 0.1"
+dream_test = "~> 1.0"
 ```
 
 ---
@@ -420,7 +420,7 @@ Benefits:
 
 ## Status
 
-**Pre-release** — API is stabilizing but may change before v1.0.
+**Stable** — v1.0 release. API is stable and ready for production use.
 
 | Feature                    | Status    |
 | -------------------------- | --------- |
