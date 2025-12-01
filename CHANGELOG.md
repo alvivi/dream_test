@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2025-12-01
+
+### Changed
+
+- **Improved Pipeline Composability**
+  - `report` now returns results, enabling cleaner pipelines:
+    `run_all() |> report(io.print) |> exit_on_failure()`
+
+### Documentation
+
+- Added "CI integration" section to README with `exit_on_failure` examples
+- Updated Quick Start example to demonstrate full pipeline with exit codes
+- Added "CI exit codes" to the feature status table
+
 ## [1.0.2] - 2025-12-01
 
 ### Added
@@ -108,7 +122,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - STANDARDS document for code conventions
 - API documentation for all public modules
 
-[Unreleased]: https://github.com/TrustBound/dream_test/compare/1.0.2...HEAD
+[Unreleased]: https://github.com/TrustBound/dream_test/compare/1.0.3...HEAD
+[1.0.3]: https://github.com/TrustBound/dream_test/compare/1.0.2...1.0.3
 [1.0.2]: https://github.com/TrustBound/dream_test/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/TrustBound/dream_test/compare/1.0.0...1.0.1
 [1.0.0]: https://github.com/TrustBound/dream_test/releases/tag/1.0.0
