@@ -2,7 +2,7 @@
 
 import dream_test/assertions/should.{equal, or_fail_with, should}
 import dream_test/reporter/bdd.{report}
-import dream_test/runner.{run_all}
+import dream_test/runner.{exit_on_failure, run_all}
 import dream_test/unit.{describe, it, to_test_cases}
 import gleam/io
 import gleam/string
@@ -30,4 +30,5 @@ pub fn main() {
   to_test_cases("quick_start", tests())
   |> run_all()
   |> report(io.print)
+  |> exit_on_failure()
 }
