@@ -18,34 +18,43 @@
 
 ```gleam
 import dream_test/unit.{describe, it}
-import dream_test/assertions/should.{should, equal, be_ok, or_fail_with}
+import dream_test/assertions/should.{be_error, be_ok, equal, or_fail_with, should}
 
 pub fn tests() {
-  describe("User authentication", [
-    it("accepts valid credentials", fn() {
-      authenticate("alice", "correct-password")
+  describe("Calculator", [
+    it("adds two numbers", fn() {
+      add(2, 3)
+      |> should()
+      |> equal(5)
+      |> or_fail_with("2 + 3 should equal 5")
+    }),
+    it("handles division", fn() {
+      divide(10, 2)
       |> should()
       |> be_ok()
-      |> or_fail_with("Valid credentials should authenticate")
+      |> equal(5)
+      |> or_fail_with("10 / 2 should equal 5")
     }),
-
-    it("rejects invalid passwords", fn() {
-      authenticate("alice", "wrong-password")
+    it("returns error for division by zero", fn() {
+      divide(1, 0)
       |> should()
-      |> equal(Error("Invalid credentials"))
-      |> or_fail_with("Wrong password should fail")
+      |> be_error()
+      |> or_fail_with("Division by zero should error")
     }),
   ])
 }
 ```
 
 ```
-User authentication
-  ✓ accepts valid credentials
-  ✓ rejects invalid passwords
+Calculator
+  ✓ adds two numbers
+  ✓ handles division
+  ✓ returns error for division by zero
 
-2 tests, 0 failures
+3 tests, 0 failures
 ```
+
+<sub>🧪 [Tested source](examples/snippets/test/hero.gleam)</sub>
 
 ---
 
@@ -83,15 +92,9 @@ dream_test = "~> 1.0"
 import dream_test/unit.{describe, it, to_test_cases}
 import dream_test/runner.{run_all}
 import dream_test/reporter/bdd.{report}
-import dream_test/assertions/should.{should, equal, be_some, or_fail_with}
+import dream_test/assertions/should.{should, equal, or_fail_with}
 import gleam/io
-
-pub fn main() {
-  tests()
-  |> to_test_cases("my_app_test")
-  |> run_all()
-  |> report(io.println)
-}
+import gleam/string
 
 pub fn tests() {
   describe("String utilities", [
@@ -102,17 +105,24 @@ pub fn tests() {
       |> equal("hello")
       |> or_fail_with("Should remove surrounding whitespace")
     }),
-
     it("finds substrings", fn() {
       "hello world"
-      |> string.find("world")
+      |> string.contains("world")
       |> should()
-      |> be_some()
+      |> equal(True)
       |> or_fail_with("Should find 'world' in string")
     }),
   ])
 }
+
+pub fn main() {
+  to_test_cases("my_app_test", tests())
+  |> run_all()
+  |> report(io.print)
+}
 ```
+
+<sub>🧪 [Tested source](examples/snippets/test/quick_start.gleam)</sub>
 
 ### 2. Run with gleam test
 
@@ -153,12 +163,14 @@ Some(42)
 |> or_fail_with("Should contain 42")
 
 // Unwrap Ok, then check the value
-Ok("hello")
+Ok("success")
 |> should()
 |> be_ok()
-|> equal("hello")
-|> or_fail_with("Should be Ok with 'hello'")
+|> equal("success")
+|> or_fail_with("Should be Ok with 'success'")
 ```
+
+<sub>🧪 [Tested source](examples/snippets/test/chaining.gleam)</sub>
 
 ### Available matchers
 
@@ -184,6 +196,8 @@ case result {
   Error(_) -> handle_expected_error()
 }
 ```
+
+<sub>🧪 [Tested source](examples/snippets/test/explicit_failures.gleam)</sub>
 
 ---
 
@@ -222,6 +236,8 @@ describe("Database tests", [
 ])
 ```
 
+<sub>🧪 [Tested source](examples/snippets/test/lifecycle_hooks.gleam)</sub>
+
 ### Hook Types
 
 | Hook          | Runs                              | Use case                          |
@@ -246,8 +262,7 @@ Choose the mode based on which hooks you need:
 import dream_test/unit.{describe, it, before_each, to_test_cases}
 import dream_test/runner.{run_all}
 
-tests()
-|> to_test_cases("my_test")
+to_test_cases("my_test", tests())
 |> run_all()
 |> report(io.print)
 ```
@@ -258,11 +273,12 @@ tests()
 import dream_test/unit.{describe, it, before_all, after_all, to_test_suite}
 import dream_test/runner.{run_suite}
 
-tests()
-|> to_test_suite("my_test")
+to_test_suite("my_test", tests())
 |> run_suite()
 |> report(io.print)
 ```
+
+<sub>🧪 [Tested source](examples/snippets/test/execution_modes.gleam)</sub>
 
 ### Hook Inheritance
 
@@ -271,18 +287,33 @@ setup, inner-to-outer for teardown:
 
 ```gleam
 describe("Outer", [
-  before_each(fn() { io.println("1. outer setup"); AssertionOk }),
-  after_each(fn() { io.println("4. outer teardown"); AssertionOk }),
-
+  before_each(fn() {
+    io.println("1. outer setup")
+    AssertionOk
+  }),
+  after_each(fn() {
+    io.println("4. outer teardown")
+    AssertionOk
+  }),
   describe("Inner", [
-    before_each(fn() { io.println("2. inner setup"); AssertionOk }),
-    after_each(fn() { io.println("3. inner teardown"); AssertionOk }),
-
-    it("test", fn() { ... }),
+    before_each(fn() {
+      io.println("2. inner setup")
+      AssertionOk
+    }),
+    after_each(fn() {
+      io.println("3. inner teardown")
+      AssertionOk
+    }),
+    it("test", fn() {
+      io.println("(test)")
+      AssertionOk
+    }),
   ]),
 ])
 // Output: 1. outer setup → 2. inner setup → (test) → 3. inner teardown → 4. outer teardown
 ```
+
+<sub>🧪 [Tested source](examples/snippets/test/hook_inheritance.gleam)</sub>
 
 ### Hook Failure Behavior
 
@@ -304,10 +335,12 @@ describe("Handles failures", [
     }
   }),
   // If before_all fails, these tests are marked SetupFailed (not run)
-  it("test1", fn() { ... }),
-  it("test2", fn() { ... }),
+  it("test1", fn() { AssertionOk }),
+  it("test2", fn() { AssertionOk }),
 ])
 ```
+
+<sub>🧪 [Tested source](examples/snippets/test/hook_failure.gleam)</sub>
 
 ---
 
@@ -339,16 +372,17 @@ it("fetches data", fn() {
 ```gleam
 import dream_test/runner.{run_all_with_config, RunnerConfig}
 
-// Custom settings
 let config = RunnerConfig(
-  max_concurrency: 8,         // Run up to 8 tests at once
-  default_timeout_ms: 10_000, // 10 second timeout per test
+  max_concurrency: 8,
+  default_timeout_ms: 10_000,
 )
 
-test_cases
-|> run_all_with_config(config)
-|> report(io.println)
+let test_cases = to_test_cases("my_test", tests())
+run_all_with_config(config, test_cases)
+|> report(io.print)
 ```
+
+<sub>🧪 [Tested source](examples/snippets/test/runner_config.gleam)</sub>
 
 ---
 
