@@ -90,7 +90,7 @@ dream_test = "~> 1.0"
 ```gleam
 // test/my_app_test.gleam
 import dream_test/unit.{describe, it, to_test_cases}
-import dream_test/runner.{run_all}
+import dream_test/runner.{exit_on_failure, run_all}
 import dream_test/reporter/bdd.{report}
 import dream_test/assertions/should.{should, equal, or_fail_with}
 import gleam/io
@@ -119,6 +119,7 @@ pub fn main() {
   to_test_cases("my_app_test", tests())
   |> run_all()
   |> report(io.print)
+  |> exit_on_failure()
 }
 ```
 
@@ -225,6 +226,28 @@ Summary: 3 run, 0 failed, 2 passed, 1 skipped
 The test body is preserved but not executed—just change `skip` back to `it` when ready.
 
 <sub>🧪 [Tested source](examples/snippets/test/skipping_tests.gleam)</sub>
+
+### CI integration
+
+Use `exit_on_failure` to ensure your CI pipeline fails when tests fail:
+
+```gleam
+import dream_test/runner.{exit_on_failure, run_all}
+
+pub fn main() {
+  to_test_cases("my_test", tests())
+  |> run_all()
+  |> report(io.print)
+  |> exit_on_failure()  // Exits with code 1 if any tests failed
+}
+```
+
+| Result                                           | Exit Code |
+| ------------------------------------------------ | --------- |
+| All tests passed                                 | 0         |
+| Any test failed, timed out, or had setup failure | 1         |
+
+<sub>🧪 [Tested source](examples/snippets/test/quick_start.gleam)</sub>
 
 ---
 
@@ -488,6 +511,7 @@ Benefits:
 | Process isolation                 | ✅ Stable |
 | Crash handling                    | ✅ Stable |
 | Timeout handling                  | ✅ Stable |
+| CI exit codes                     | ✅ Stable |
 | Polling helpers                   | ✅ Stable |
 
 ---

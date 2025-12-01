@@ -21,6 +21,7 @@ describe("Feature", [
 ```
 
 Output:
+
 ```
 Feature
   ✓ works correctly
@@ -40,10 +41,12 @@ New functions for CI integration:
 import dream_test/runner.{run_all, exit_on_failure, has_failures}
 
 pub fn main() {
-  to_test_cases("my_test", tests())
-  |> run_all()
-  |> report(io.print)
-  |> exit_on_failure()  // Exits with code 1 if any tests failed
+  let results =
+    to_test_cases("my_test", tests())
+    |> run_all()
+
+  report(results, io.print)
+  exit_on_failure(results)  // Exits with code 1 if any tests failed
 }
 ```
 
@@ -52,8 +55,8 @@ pub fn main() {
 
 ## New Snippet
 
-| Snippet | File |
-|---------|------|
+| Snippet        | File                   |
+| -------------- | ---------------------- |
 | Skipping Tests | `skipping_tests.gleam` |
 
 ## Upgrading
@@ -66,6 +69,7 @@ dream_test = "~> 1.0"
 ```
 
 Then run:
+
 ```bash
 gleam deps download
 ```
@@ -76,10 +80,12 @@ Update your test entry point to use `exit_on_failure`:
 
 ```gleam
 pub fn main() {
-  to_test_cases("my_test", tests())
-  |> run_all()
-  |> report(io.print)
-  |> exit_on_failure()  // Add this line
+  let results =
+    to_test_cases("my_test", tests())
+    |> run_all()
+
+  report(results, io.print)
+  exit_on_failure(results)
 }
 ```
 
@@ -97,4 +103,3 @@ This release is fully backward compatible. All existing code continues to work w
 ---
 
 **Full Changelog:** [CHANGELOG.md](https://github.com/TrustBound/dream_test/blob/main/CHANGELOG.md)
-

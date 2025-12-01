@@ -105,8 +105,23 @@ pub fn format(results: List(TestResult)) -> String {
 /// - `results` - List of test results from the runner
 /// - `write` - Function that handles the formatted output string
 ///
-pub fn report(results: List(TestResult), write: fn(String) -> Nil) {
+/// ## Returns
+///
+/// Returns the input results unchanged, enabling pipeline composition:
+///
+/// ```gleam
+/// to_test_cases("my_test", tests())
+/// |> run_all()
+/// |> report(io.print)
+/// |> exit_on_failure()
+/// ```
+///
+pub fn report(
+  results: List(TestResult),
+  write: fn(String) -> Nil,
+) -> List(TestResult) {
   write(format(results))
+  results
 }
 
 fn format_all_results(

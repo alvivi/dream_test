@@ -12,20 +12,18 @@ import dream_test/unit_test
 import gleam/io
 
 pub fn main() {
-  let all_tests =
-    describe("dream_test", [
-      types_test.tests(),
-      should_test.tests(),
-      runner_test.tests(),
-      unit_test.tests(),
-      bdd_test.tests(),
-      sandbox_test.tests(),
-      process_test.tests(),
-      lifecycle_test.tests(),
-    ])
-
-  let test_cases = to_test_cases("dream_test_test", all_tests)
-  let results = run_all(test_cases)
-  report(results, io.print)
-  exit_on_failure(results)
+  describe("dream_test", [
+    types_test.tests(),
+    should_test.tests(),
+    runner_test.tests(),
+    unit_test.tests(),
+    bdd_test.tests(),
+    sandbox_test.tests(),
+    process_test.tests(),
+    lifecycle_test.tests(),
+  ])
+  |> to_test_cases("dream_test_test", _)
+  |> run_all()
+  |> report(io.print)
+  |> exit_on_failure()
 }
