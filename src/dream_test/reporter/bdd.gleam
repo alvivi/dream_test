@@ -58,6 +58,7 @@ import dream_test/types.{
 import gleam/int
 import gleam/list
 import gleam/option.{Some}
+import gleam/order
 import gleam/string
 
 /// Format test results as a BDD-style report string.
@@ -101,7 +102,29 @@ fn partition_by_kind(
 fn format_unit_results(results: List(TestResult)) -> String {
   case results {
     [] -> ""
-    _ -> format_all_results(results, [], "")
+    _ -> {
+      // Sort results by full_name to group tests from the same describe block together.
+      // This ensures consistent output regardless of parallel execution order.
+      let sorted = list.sort(results, compare_by_full_name)
+      format_all_results(sorted, [], "")
+    }
+  }
+}
+
+fn compare_by_full_name(a: TestResult, b: TestResult) -> order.Order {
+  compare_string_lists(a.full_name, b.full_name)
+}
+
+fn compare_string_lists(a: List(String), b: List(String)) -> order.Order {
+  case a, b {
+    [], [] -> order.Eq
+    [], _ -> order.Lt
+    _, [] -> order.Gt
+    [head_a, ..rest_a], [head_b, ..rest_b] ->
+      case string.compare(head_a, head_b) {
+        order.Eq -> compare_string_lists(rest_a, rest_b)
+        other -> other
+      }
   }
 }
 
