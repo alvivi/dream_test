@@ -1,9 +1,8 @@
 //// README: Lifecycle hooks
 
-import dream_test/assertions/should.{be_empty, or_fail_with, should}
+import dream_test/assertions/should.{be_empty, or_fail_with, should, succeed}
 import dream_test/reporter/bdd.{report}
 import dream_test/runner.{run_suite}
-import dream_test/types.{AssertionOk}
 import dream_test/unit.{
   after_all, after_each, before_all, before_each, describe, it, to_test_suite,
 }
@@ -13,11 +12,11 @@ pub fn tests() {
   describe("Database tests", [
     before_all(fn() {
       // Start database once for all tests
-      AssertionOk
+      succeed()
     }),
     before_each(fn() {
       // Begin transaction before each test
-      AssertionOk
+      succeed()
     }),
     it("creates a record", fn() {
       []
@@ -33,11 +32,11 @@ pub fn tests() {
     }),
     after_each(fn() {
       // Rollback transaction after each test
-      AssertionOk
+      succeed()
     }),
     after_all(fn() {
       // Stop database after all tests
-      AssertionOk
+      succeed()
     }),
   ])
 }

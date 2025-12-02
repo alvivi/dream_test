@@ -1,20 +1,26 @@
 //// README: Explicit failures
 
-import dream_test/assertions/should.{fail_with}
+import dream_test/assertions/should.{fail_with, succeed}
 import dream_test/reporter/bdd.{report}
 import dream_test/runner.{run_all}
-import dream_test/types.{AssertionOk}
 import dream_test/unit.{describe, it, to_test_cases}
 import gleam/io
 import snippets.{divide}
 
 pub fn tests() {
   describe("Explicit failures", [
-    it("fails explicitly when needed", fn() {
+    it("succeeds explicitly when division works", fn() {
       let result = divide(10, 2)
       case result {
-        Ok(_) -> AssertionOk
+        Ok(_) -> succeed()
         Error(_) -> fail_with("Should have succeeded")
+      }
+    }),
+    it("fails explicitly when expecting an error", fn() {
+      let result = divide(10, 0)
+      case result {
+        Ok(_) -> fail_with("Should have returned an error")
+        Error(_) -> succeed()
       }
     }),
   ])

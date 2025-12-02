@@ -89,8 +89,8 @@ pub type Status {
 /// Used to distinguish between different testing styles:
 ///
 /// - `Unit` - Standard unit tests from `describe`/`it`
-/// - `Integration` - Integration tests (coming soon)
-/// - `GherkinScenario(id)` - Tests from `.feature` files (coming soon)
+/// - `Integration` - Integration tests (for future use)
+/// - `GherkinScenario(id)` - Tests from Gherkin features (inline DSL or `.feature` files)
 ///
 pub type TestKind {
   Unit
@@ -259,10 +259,10 @@ pub type CoverageSummary {
 /// - `name` - The test's own name (from `it`)
 /// - `full_name` - Complete path including `describe` ancestors
 /// - `status` - Whether the test passed, failed, etc.
-/// - `duration_ms` - How long the test took (not yet implemented)
-/// - `tags` - Test tags (not yet implemented)
+/// - `duration_ms` - How long the test took in milliseconds
+/// - `tags` - Test tags for filtering
 /// - `failures` - List of assertion failures (empty if passed)
-/// - `kind` - Type of test (Unit, Integration, etc.)
+/// - `kind` - Type of test (Unit, Integration, Gherkin)
 ///
 /// ## Example
 ///
@@ -302,8 +302,8 @@ pub type TestResult {
 ///
 /// - `name` - The test's name
 /// - `full_name` - Complete path including parent groups
-/// - `tags` - Tags for filtering (not yet implemented)
-/// - `kind` - Type of test
+/// - `tags` - Tags for filtering with `RunnerConfig.test_filter`
+/// - `kind` - Type of test (Unit, Integration, Gherkin)
 /// - `run` - The test function to execute
 /// - `timeout_ms` - Optional per-test timeout override
 /// - `before_each_hooks` - Hooks to run before the test (outer-to-inner order)

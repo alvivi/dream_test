@@ -9,17 +9,17 @@
 //// ```text
 //// Calculator
 ////   add
-////     ✓ adds positive numbers
+////     ✓ adds positive numbers (1ms)
 ////     ✓ handles zero
 ////   subtract
 ////     ✓ subtracts positive numbers
-////     ✗ handles negative results
+////     ✗ handles negative results (2ms)
 ////       equal
 ////         Message: Should handle negative subtraction
 ////         Expected: -5
 ////         Actual:   5
 ////
-//// Summary: 4 run, 1 failed, 3 passed
+//// Summary: 4 run, 1 failed, 3 passed in 3ms
 //// ```
 ////
 //// ## Usage
@@ -49,6 +49,8 @@
 //// | TimedOut    | !      | Test exceeded timeout          |
 //// | SetupFailed | ⚠      | A setup hook failed            |
 
+import dream_test/reporter/gherkin as gherkin_reporter
+import dream_test/timing
 import dream_test/types.{
   type AssertionFailure, type Status, type TestResult, EqualityFailure, Failed,
   Passed, Pending, SetupFailed, Skipped, TimedOut,
@@ -56,6 +58,7 @@ import dream_test/types.{
 import gleam/int
 import gleam/list
 import gleam/option.{Some}
+import gleam/order
 import gleam/string
 
 /// Format test results as a BDD-style report string.
@@ -64,6 +67,8 @@ import gleam/string
 /// - Hierarchical test results with status markers
 /// - Failure details with messages and diffs
 /// - Summary line with counts
+///
+/// Gherkin tests are automatically formatted using the Gherkin reporter style.
 ///
 /// Use this when you need the report as a string (e.g., for testing the
 /// reporter itself or writing to a file).
@@ -76,9 +81,92 @@ import gleam/string
 /// ```
 ///
 pub fn format(results: List(TestResult)) -> String {
-  let formatted_results = format_all_results(results, [], "")
+  // Split results by kind
+  let #(gherkin_results, unit_results) = partition_by_kind(results)
+
+  // Format each group with appropriate reporter
+  let unit_text = format_unit_results(unit_results)
+  let gherkin_text = format_gherkin_results(gherkin_results)
+
+  // Combine with single summary
   let summary_text = format_summary(results)
-  string.concat([formatted_results, "\n", summary_text])
+  string.concat([unit_text, gherkin_text, "\n", summary_text])
+}
+
+fn partition_by_kind(
+  results: List(TestResult),
+) -> #(List(TestResult), List(TestResult)) {
+  list.partition(results, gherkin_reporter.is_gherkin_result)
+}
+
+fn format_unit_results(results: List(TestResult)) -> String {
+  case results {
+    [] -> ""
+    _ -> {
+      // Sort results by full_name to group tests from the same describe block together.
+      // This ensures consistent output regardless of parallel execution order.
+      let sorted = list.sort(results, compare_by_full_name)
+      format_all_results(sorted, [], "")
+    }
+  }
+}
+
+fn compare_by_full_name(a: TestResult, b: TestResult) -> order.Order {
+  compare_string_lists(a.full_name, b.full_name)
+}
+
+fn compare_string_lists(a: List(String), b: List(String)) -> order.Order {
+  case a, b {
+    [], [] -> order.Eq
+    [], _ -> order.Lt
+    _, [] -> order.Gt
+    [head_a, ..rest_a], [head_b, ..rest_b] ->
+      case string.compare(head_a, head_b) {
+        order.Eq -> compare_string_lists(rest_a, rest_b)
+        other -> other
+      }
+  }
+}
+
+fn format_gherkin_results(results: List(TestResult)) -> String {
+  case results {
+    [] -> ""
+    _ -> {
+      let formatted = gherkin_reporter.format(results)
+      // Remove the gherkin reporter's own summary (we'll use combined summary)
+      remove_summary_line(formatted)
+    }
+  }
+}
+
+fn remove_summary_line(text: String) -> String {
+  // Find and remove the summary line (may have trailing empty lines)
+  let lines = string.split(text, "\n")
+  let without_summary = remove_gherkin_summary(lines, [])
+  string.join(without_summary, "\n")
+}
+
+fn remove_gherkin_summary(
+  lines: List(String),
+  accumulated: List(String),
+) -> List(String) {
+  case lines {
+    [] -> list.reverse(accumulated)
+    [line] -> {
+      // Check if this is the summary line or trailing empty line
+      case string.starts_with(line, "Summary:") || line == "" {
+        True -> list.reverse(accumulated)
+        False -> list.reverse([line, ..accumulated])
+      }
+    }
+    [line, ..rest] -> {
+      // Skip summary lines anywhere in the list
+      case string.starts_with(line, "Summary:") {
+        True -> remove_gherkin_summary(rest, accumulated)
+        False -> remove_gherkin_summary(rest, [line, ..accumulated])
+      }
+    }
+  }
 }
 
 /// Print test results using a provided writer function.
@@ -209,9 +297,18 @@ fn format_test_line(result: TestResult) -> String {
   let indent = build_indent(depth)
   let marker = status_marker(result.status)
   let name = extract_test_name(result.full_name)
-  let test_line = string.concat([indent, marker, " ", name, "\n"])
+  let duration = format_duration(result.duration_ms)
+  let test_line = string.concat([indent, marker, " ", name, duration, "\n"])
   let failure_text = format_failure_details(result, depth)
   string.concat([test_line, failure_text])
+}
+
+fn format_duration(duration_ms: Int) -> String {
+  case duration_ms {
+    // Don't show timing for very fast tests (< 1ms)
+    ms if ms <= 0 -> ""
+    ms -> " (" <> timing.format_duration_ms(ms) <> ")"
+  }
 }
 
 fn calculate_test_depth(full_name: List(String)) -> Int {
@@ -319,6 +416,7 @@ fn format_summary(results: List(TestResult)) -> String {
   let timed_out = count_by_status(results, TimedOut)
   let setup_failed = count_by_status(results, SetupFailed)
   let passed = total - failed - skipped - pending - timed_out - setup_failed
+  let total_duration = sum_durations(results, 0)
 
   string.concat([
     "Summary: ",
@@ -329,8 +427,17 @@ fn format_summary(results: List(TestResult)) -> String {
     int.to_string(passed),
     " passed",
     build_summary_suffix(skipped, pending, timed_out, setup_failed),
+    " in ",
+    timing.format_duration_ms(total_duration),
     "\n",
   ])
+}
+
+fn sum_durations(results: List(TestResult), total: Int) -> Int {
+  case results {
+    [] -> total
+    [result, ..rest] -> sum_durations(rest, total + result.duration_ms)
+  }
 }
 
 fn count_by_status(results: List(TestResult), wanted: Status) -> Int {
