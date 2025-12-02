@@ -2,7 +2,7 @@
 
 **Release Date:** December 2, 2025
 
-Dream Test 1.1.0 introduces full Gherkin/Cucumber-style BDD testing support, bringing behavior-driven development to Gleam with typed step definitions and seamless integration with the existing test runner.
+Dream Test 1.1.0 introduces full Gherkin/Cucumber-style BDD testing support, test tagging and filtering, and per-test timing—bringing behavior-driven development to Gleam with typed step definitions and seamless integration with the existing test runner.
 
 ## What's New
 
@@ -93,7 +93,7 @@ ETS-backed mutable state shared between steps within a scenario:
 fn step_add_item(context: StepContext) -> AssertionResult {
   let current = get_or(context.world, "cart_count", 0)
   put(context.world, "cart_count", current + 1)
-  AssertionOk
+  succeed()
 }
 ```
 
@@ -123,6 +123,81 @@ Summary: 3 run, 0 failed, 3 passed in 2ms
 ```
 
 Duration scales automatically: `42ms` → `1.5s` → `2m 30s` → `1h 15m`
+
+### ✅ `succeed()` Function
+
+A new `succeed()` function provides an explicit way to mark success in conditional branches—the natural counterpart to `fail_with()`:
+
+```gleam
+import dream_test/assertions/should.{fail_with, succeed}
+
+case result {
+  Ok(_) -> succeed()
+  Error(_) -> fail_with("Should have succeeded")
+}
+```
+
+Use `succeed()` instead of importing `AssertionOk` directly for cleaner, more idiomatic test code.
+
+### 🏷️ Test Tagging and Filtering
+
+Tag tests for selective execution during development or CI:
+
+```gleam
+import dream_test/unit.{describe, it, with_tags}
+
+describe("Calculator", [
+  it("adds numbers", fn() { ... })
+    |> with_tags(["unit", "fast"]),
+  it("complex calculation", fn() { ... })
+    |> with_tags(["integration", "slow"]),
+])
+```
+
+Filter which tests run using `RunnerConfig.test_filter`:
+
+```gleam
+import dream_test/runner.{RunnerConfig, run_all_with_config}
+import gleam/list
+
+let config = RunnerConfig(
+  max_concurrency: 4,
+  default_timeout_ms: 5000,
+  test_filter: Some(fn(c) { list.contains(c.tags, "unit") }),
+)
+
+test_cases |> run_all_with_config(config)
+```
+
+The filter is a predicate function receiving `SingleTestConfig`, giving you full control. Filter by tags, test name, kind, or any combination—you decide how to populate the filter (env vars, CLI args, hardcoded for debugging).
+
+Tagging works for both unit tests (`dream_test/unit.with_tags`) and Gherkin scenarios (`dream_test/gherkin/feature.with_tags`), with tags unified at the `SingleTestConfig` level.
+
+### 🔧 Custom Matchers Documentation
+
+Create your own matchers that work seamlessly with the assertion chain. The README now includes a guide for writing custom matchers using `MatchResult(a)`:
+
+```gleam
+pub fn be_even(result: MatchResult(Int)) -> MatchResult(Int) {
+  case result {
+    MatchFailed(failure) -> MatchFailed(failure)
+    MatchOk(value) -> case value % 2 == 0 {
+      True -> MatchOk(value)
+      False -> MatchFailed(AssertionFailure(
+        operator: "be_even",
+        message: "",
+        payload: Some(CustomMatcherFailure(
+          actual: int.to_string(value),
+          description: "expected an even number",
+        )),
+      ))
+    }
+  }
+}
+
+// Use it like any built-in matcher
+4 |> should() |> be_even() |> or_fail_with("Should be even")
+```
 
 ### Additional Features
 

@@ -497,7 +497,7 @@ pub fn scenario(name: String, inline_steps: List(InlineStep)) -> InlineScenario 
   InlineScenario(name: name, steps: inline_steps, tags: [])
 }
 
-/// Add tags to a scenario for filtering.
+/// Add tags to a Gherkin scenario for filtering.
 ///
 /// ## Example
 ///
@@ -508,6 +508,11 @@ pub fn scenario(name: String, inline_steps: List(InlineStep)) -> InlineScenario 
 /// ])
 /// |> with_tags(["happy-path", "smoke"])
 /// ```
+///
+/// ## Note
+///
+/// This function is for Gherkin scenarios. For unit tests (`it`), use
+/// `dream_test/unit.with_tags` instead.
 ///
 pub fn with_tags(
   inline_scenario: InlineScenario,

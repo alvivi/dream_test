@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Test tagging and filtering** (`dream_test/unit`, `dream_test/runner`)
+  - `with_tags()` function to tag unit tests for categorization
+  - `RunnerConfig.test_filter` predicate for selective test execution
+  - Filter by tags, name, kind, or any `SingleTestConfig` field
+  - Works with both flat mode (`run_all`) and suite mode (`run_suite`)
+  - Unified tagging across unit tests and Gherkin scenarios
+
+- **`succeed()` function** (`dream_test/assertions/should`)
+  - Explicit success counterpart to `fail_with()` for conditional branches
+  - Use in `case` expressions where all branches must return `AssertionResult`
+  - Recommended over importing `AssertionOk` directly in user code
+
 - **Gherkin/Cucumber BDD Support**
 
   - Full Cucumber-style Given/When/Then testing with typed step definitions
@@ -49,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added shopping cart example in `examples/shopping_cart/`
 - Added Gherkin snippets in `examples/snippets/`
 - Updated feature status table with Gherkin/Cucumber BDD
+- Added custom matchers documentation with example snippet
 
 ## [1.0.3] - 2025-12-01
 

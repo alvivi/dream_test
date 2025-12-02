@@ -1,6 +1,6 @@
 //// README: Gherkin step handler example
 
-import dream_test/assertions/should.{equal, or_fail_with, should}
+import dream_test/assertions/should.{equal, or_fail_with, should, succeed}
 import dream_test/gherkin/feature.{feature, given, scenario, then, when}
 import dream_test/gherkin/steps.{
   type StepContext, type StepRegistry, get_float, new_registry, step,
@@ -8,7 +8,7 @@ import dream_test/gherkin/steps.{
 import dream_test/gherkin/world.{get_or, put}
 import dream_test/reporter/bdd.{report}
 import dream_test/runner.{run_suite}
-import dream_test/types.{type AssertionResult, AssertionOk}
+import dream_test/types.{type AssertionResult}
 import gleam/io
 import gleam/result
 
@@ -17,14 +17,14 @@ fn step_have_balance(context: StepContext) -> AssertionResult {
   // {float} captures the numeric value (even with $ prefix)
   let balance = get_float(context.captures, 0) |> result.unwrap(0.0)
   put(context.world, "balance", balance)
-  AssertionOk
+  succeed()
 }
 
 fn step_withdraw(context: StepContext) -> AssertionResult {
   let current = get_or(context.world, "balance", 0.0)
   let amount = get_float(context.captures, 0) |> result.unwrap(0.0)
   put(context.world, "balance", current -. amount)
-  AssertionOk
+  succeed()
 }
 
 fn step_balance_is(context: StepContext) -> AssertionResult {

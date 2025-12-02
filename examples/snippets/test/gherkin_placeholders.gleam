@@ -1,5 +1,6 @@
 //// README: Gherkin placeholder types example
 
+import dream_test/assertions/should.{succeed}
 import dream_test/gherkin/feature.{feature, given, scenario, then}
 import dream_test/gherkin/steps.{
   type StepContext, get_float, get_int, get_string, get_word, new_registry, step,
@@ -7,7 +8,7 @@ import dream_test/gherkin/steps.{
 import dream_test/gherkin/world.{put}
 import dream_test/reporter/bdd.{report}
 import dream_test/runner.{run_suite}
-import dream_test/types.{type AssertionResult, AssertionOk}
+import dream_test/types.{type AssertionResult}
 import gleam/io
 import gleam/result
 
@@ -15,32 +16,32 @@ import gleam/result
 fn step_int(context: StepContext) -> AssertionResult {
   let value = get_int(context.captures, 0) |> result.unwrap(0)
   put(context.world, "int", value)
-  AssertionOk
+  succeed()
 }
 
 // {float} captures decimals (works with $ prefix too)
 fn step_float(context: StepContext) -> AssertionResult {
   let value = get_float(context.captures, 0) |> result.unwrap(0.0)
   put(context.world, "float", value)
-  AssertionOk
+  succeed()
 }
 
 // {string} captures quoted strings
 fn step_string(context: StepContext) -> AssertionResult {
   let value = get_string(context.captures, 0) |> result.unwrap("")
   put(context.world, "string", value)
-  AssertionOk
+  succeed()
 }
 
 // {word} captures a single unquoted word
 fn step_word(context: StepContext) -> AssertionResult {
   let value = get_word(context.captures, 0) |> result.unwrap("")
   put(context.world, "word", value)
-  AssertionOk
+  succeed()
 }
 
 fn step_pass(_context: StepContext) -> AssertionResult {
-  AssertionOk
+  succeed()
 }
 
 pub fn tests() {
