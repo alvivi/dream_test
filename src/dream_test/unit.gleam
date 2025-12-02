@@ -135,7 +135,7 @@ import gleam/option.{None}
 ///
 /// ## Variants
 ///
-/// - `ItTest(name, run)` - A single test with a name and body function
+/// - `ItTest(name, tags, run)` - A single test with a name, tags, and body function
 /// - `DescribeGroup(name, children)` - A group of tests under a shared name
 /// - `BeforeAll(setup)` - Runs once before all tests in the group
 /// - `BeforeEach(setup)` - Runs before each test in the group
@@ -143,7 +143,7 @@ import gleam/option.{None}
 /// - `AfterAll(teardown)` - Runs once after all tests in the group
 ///
 pub type UnitTest {
-  ItTest(name: String, run: fn() -> AssertionResult)
+  ItTest(name: String, tags: List(String), run: fn() -> AssertionResult)
   DescribeGroup(name: String, children: List(UnitTest))
   BeforeAll(setup: fn() -> AssertionResult)
   BeforeEach(setup: fn() -> AssertionResult)
@@ -176,7 +176,7 @@ pub type UnitTest {
 /// - ✗ "works"
 ///
 pub fn it(name: String, run: fn() -> AssertionResult) -> UnitTest {
-  ItTest(name, run)
+  ItTest(name: name, tags: [], run: run)
 }
 
 /// Skip a test case.
@@ -222,7 +222,54 @@ pub fn it(name: String, run: fn() -> AssertionResult) -> UnitTest {
 /// toggle between `it` and `skip` without losing your test code.
 ///
 pub fn skip(name: String, _run: fn() -> AssertionResult) -> UnitTest {
-  ItTest(name, fn() { AssertionSkipped })
+  ItTest(name: name, tags: [], run: fn() { AssertionSkipped })
+}
+
+/// Add tags to a unit test for filtering.
+///
+/// Tags allow you to categorize tests and run subsets of your test suite.
+/// The actual filtering logic is provided via `RunnerConfig.test_filter`,
+/// giving you full control over how tags are interpreted.
+///
+/// ## Example
+///
+/// ```gleam
+/// describe("Calculator", [
+///   it("adds numbers", fn() { ... })
+///     |> with_tags(["unit", "fast"]),
+///   it("complex calculation", fn() { ... })
+///     |> with_tags(["integration", "slow"]),
+/// ])
+/// ```
+///
+/// ## Filtering
+///
+/// Provide a filter function in `RunnerConfig`:
+///
+/// ```gleam
+/// let config = RunnerConfig(
+///   max_concurrency: 4,
+///   default_timeout_ms: 5000,
+///   test_filter: Some(fn(config) { list.contains(config.tags, "unit") }),
+/// )
+/// ```
+///
+/// ## Note
+///
+/// This function is for unit tests (`it`). For Gherkin scenarios, use
+/// `dream_test/gherkin/feature.with_tags` instead.
+///
+/// If applied to a non-test node (e.g., `describe`), the tags are ignored.
+/// Tags only apply to individual tests. Calling `with_tags` replaces any
+/// existing tags (use `list.append` if you need to combine).
+///
+pub fn with_tags(unit_test: UnitTest, tags: List(String)) -> UnitTest {
+  case unit_test {
+    ItTest(name: name, tags: _, run: run) ->
+      ItTest(name: name, tags: tags, run: run)
+    // Other nodes don't support tags, return unchanged
+    other -> other
+  }
 }
 
 /// Group related tests under a common description.
@@ -607,8 +654,15 @@ fn to_test_cases_from_unit_test(
   accumulated: List(TestCase),
 ) -> List(TestCase) {
   case node {
-    ItTest(name, run) ->
-      build_it_test_case(name_prefix, name, run, hook_context, accumulated)
+    ItTest(name: name, tags: tags, run: run) ->
+      build_it_test_case(
+        name_prefix,
+        name,
+        tags,
+        run,
+        hook_context,
+        accumulated,
+      )
 
     DescribeGroup(name, children) -> {
       let new_prefix = list.append(name_prefix, [name])
@@ -675,6 +729,7 @@ fn collect_hook_from_node(node: UnitTest, context: HookContext) -> HookContext {
 fn build_it_test_case(
   name_prefix: List(String),
   name: String,
+  tags: List(String),
   run: fn() -> AssertionResult,
   hook_context: HookContext,
   accumulated: List(TestCase),
@@ -684,7 +739,7 @@ fn build_it_test_case(
     SingleTestConfig(
       name: name,
       full_name: full_name,
-      tags: [],
+      tags: tags,
       kind: Unit,
       run: run,
       timeout_ms: None,
@@ -832,10 +887,10 @@ fn to_suite_from_unit_test(
     }
 
     // If root is not a describe, wrap it in a synthetic suite
-    ItTest(name, run) -> {
+    ItTest(name: name, tags: tags, run: run) -> {
       let full_name = list.append(name_prefix, [name])
       let test_case =
-        build_single_test_case(full_name, name, run, inherited_hooks)
+        build_single_test_case(full_name, name, tags, run, inherited_hooks)
       TestSuite(
         name: module_name,
         full_name: [module_name],
@@ -950,9 +1005,10 @@ fn build_suite_item(
   node: UnitTest,
 ) -> List(TestSuiteItem) {
   case node {
-    ItTest(name, run) -> {
+    ItTest(name: name, tags: tags, run: run) -> {
       let full_name = list.append(name_prefix, [name])
-      let test_case = build_single_test_case(full_name, name, run, hook_context)
+      let test_case =
+        build_single_test_case(full_name, name, tags, run, hook_context)
       [SuiteTest(test_case)]
     }
 
@@ -976,6 +1032,7 @@ fn build_suite_item(
 fn build_single_test_case(
   full_name: List(String),
   name: String,
+  tags: List(String),
   run: fn() -> AssertionResult,
   hook_context: HookContext,
 ) -> TestCase {
@@ -983,7 +1040,7 @@ fn build_single_test_case(
     SingleTestConfig(
       name: name,
       full_name: full_name,
-      tags: [],
+      tags: tags,
       kind: Unit,
       run: run,
       timeout_ms: None,

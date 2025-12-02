@@ -51,7 +51,7 @@ Calculator
   ✓ handles division
   ✓ returns error for division by zero
 
-3 tests, 0 failures
+Summary: 3 run, 0 failed, 3 passed in 2ms
 ```
 
 <sub>🧪 [Tested source](examples/snippets/test/hero.gleam)</sub>
@@ -63,23 +63,27 @@ Calculator
 ```toml
 # gleam.toml
 [dev-dependencies]
-dream_test = "~> 1.0"
+dream_test = "~> 1.1"
 ```
 
 ---
 
 ## Why Dream Test?
 
-| Feature                 | What you get                                                                   |
-| ----------------------- | ------------------------------------------------------------------------------ |
-| **Parallel by default** | Tests run concurrently across all cores—100 tests finish ~4x faster on 4 cores |
-| **Crash-proof**         | Each test runs in an isolated BEAM process; one crash doesn't kill the suite   |
-| **Timeout-protected**   | Hanging tests get killed automatically; no more stuck CI pipelines             |
-| **Lifecycle hooks**     | `before_all`, `before_each`, `after_each`, `after_all` for setup/teardown      |
-| **Gleam-native**        | Pipe-first assertions that feel natural; no macros, no reflection, no magic    |
-| **Familiar syntax**     | If you've used Jest, RSpec, or Mocha, you already know the basics              |
-| **Type-safe**           | Your tests are just Gleam code; the compiler catches mistakes early            |
-| **Self-hosting**        | Dream Test tests itself; we eat our own cooking                                |
+| Feature                 | What you get                                                                 |
+| ----------------------- | ---------------------------------------------------------------------------- |
+| **Blazing fast**        | Parallel execution + BEAM lightweight processes = 214 tests in 300ms         |
+| **Parallel by default** | Tests run concurrently across all cores—configurable concurrency             |
+| **Crash-proof**         | Each test runs in an isolated BEAM process; one crash doesn't kill the suite |
+| **Timeout-protected**   | Hanging tests get killed automatically; no more stuck CI pipelines           |
+| **Lifecycle hooks**     | `before_all`, `before_each`, `after_each`, `after_all` for setup/teardown    |
+| **Tagging & filtering** | Tag tests and run subsets with custom filter predicates                      |
+| **Gleam-native**        | Pipe-first assertions that feel natural; no macros, no reflection, no magic  |
+| **Multiple reporters**  | BDD-style human output or JSON for CI/tooling integration                    |
+| **Familiar syntax**     | If you've used Jest, RSpec, or Mocha, you already know the basics            |
+| **Type-safe**           | Your tests are just Gleam code; the compiler catches mistakes early          |
+| **Gherkin/BDD**         | Write specs in plain English with Cucumber-style Given/When/Then             |
+| **Self-hosting**        | Dream Test tests itself; we eat our own cooking                              |
 
 ---
 
@@ -138,7 +142,7 @@ String utilities
   ✓ trims whitespace
   ✓ finds substrings
 
-2 tests, 0 failures
+Summary: 2 run, 0 failed, 2 passed in 1ms
 ```
 
 ---
@@ -185,16 +189,57 @@ Ok("success")
 | **Comparison**  | `be_greater_than`, `be_less_than`, `be_at_least`, `be_at_most`, `be_between`, `be_in_range` |
 | **String**      | `start_with`, `end_with`, `contain_string`                                                  |
 
-### Explicit failures
+### Custom matchers
 
-When you need to fail unconditionally:
+Create your own matchers by working with `MatchResult(a)`. A matcher receives a result, checks if it already failed (propagate), or validates the value:
 
 ```gleam
-import dream_test/assertions/should.{fail_with}
+import dream_test/types.{
+  type MatchResult, AssertionFailure, CustomMatcherFailure, MatchFailed, MatchOk,
+}
+import gleam/option.{Some}
+
+pub fn be_even(result: MatchResult(Int)) -> MatchResult(Int) {
+  case result {
+    // Propagate existing failures
+    MatchFailed(failure) -> MatchFailed(failure)
+    // Check our condition
+    MatchOk(value) -> case value % 2 == 0 {
+      True -> MatchOk(value)
+      False -> MatchFailed(AssertionFailure(
+        operator: "be_even",
+        message: "",
+        payload: Some(CustomMatcherFailure(
+          actual: int.to_string(value),
+          description: "expected an even number",
+        )),
+      ))
+    }
+  }
+}
+```
+
+Use it like any built-in matcher:
+
+```gleam
+4
+|> should()
+|> be_even()
+|> or_fail_with("Should be even")
+```
+
+<sub>🧪 [Tested source](examples/snippets/test/custom_matchers.gleam)</sub>
+
+### Explicit success and failure
+
+When you need to explicitly succeed or fail in conditional branches:
+
+```gleam
+import dream_test/assertions/should.{fail_with, succeed}
 
 case result {
-  Ok(_) -> fail_with("Should have returned an error")
-  Error(_) -> handle_expected_error()
+  Ok(_) -> succeed()
+  Error(_) -> fail_with("Should have succeeded")
 }
 ```
 
@@ -227,6 +272,47 @@ The test body is preserved but not executed—just change `skip` back to `it` wh
 
 <sub>🧪 [Tested source](examples/snippets/test/skipping_tests.gleam)</sub>
 
+### Tagging and filtering
+
+Add tags to tests for selective execution:
+
+```gleam
+import dream_test/unit.{describe, it, with_tags}
+
+describe("Calculator", [
+  it("adds numbers", fn() { ... })
+    |> with_tags(["unit", "fast"]),
+  it("complex calculation", fn() { ... })
+    |> with_tags(["integration", "slow"]),
+])
+```
+
+Filter which tests run via `RunnerConfig.test_filter`:
+
+```gleam
+import dream_test/runner.{RunnerConfig, run_all_with_config}
+import gleam/list
+
+let config = RunnerConfig(
+  max_concurrency: 4,
+  default_timeout_ms: 5000,
+  test_filter: Some(fn(c) { list.contains(c.tags, "unit") }),
+)
+
+test_cases |> run_all_with_config(config)
+```
+
+The filter is a predicate function receiving `SingleTestConfig`, so you can filter by tags, name, or any other field. You control how to populate the filter—from environment variables, CLI args, or hardcoded for debugging.
+
+| Use case           | Filter example                             |
+| ------------------ | ------------------------------------------ |
+| Run tagged "unit"  | `fn(c) { list.contains(c.tags, "unit") }`  |
+| Exclude "slow"     | `fn(c) { !list.contains(c.tags, "slow") }` |
+| Match name pattern | `fn(c) { string.contains(c.name, "add") }` |
+| Run all (default)  | `None`                                     |
+
+For Gherkin scenarios, use `dream_test/gherkin/feature.with_tags` instead.
+
 ### CI integration
 
 Use `exit_on_failure` to ensure your CI pipeline fails when tests fail:
@@ -249,6 +335,249 @@ pub fn main() {
 
 <sub>🧪 [Tested source](examples/snippets/test/quick_start.gleam)</sub>
 
+### JSON reporter
+
+Output test results as JSON for CI/CD integration, test aggregation, or tooling:
+
+```gleam
+import dream_test/reporter/json
+import dream_test/reporter/bdd.{report}
+
+pub fn main() {
+  to_test_cases("my_test", tests())
+  |> run_all()
+  |> report(io.print)           // Human-readable to stdout
+  |> json.report(write_to_file) // JSON to file
+  |> exit_on_failure()
+}
+```
+
+The JSON output includes system info, timing, and detailed failure data:
+
+```json
+{
+  "version": "1.0",
+  "timestamp_ms": 1733151045123,
+  "duration_ms": 315,
+  "system": { "os": "darwin", "otp_version": "27", "gleam_version": "0.67.0" },
+  "summary": { "total": 3, "passed": 2, "failed": 1, ... },
+  "tests": [
+    {
+      "name": "adds numbers",
+      "full_name": ["Calculator", "add", "adds numbers"],
+      "status": "passed",
+      "duration_ms": 2,
+      "kind": "unit",
+      "failures": []
+    }
+  ]
+}
+```
+
+<sub>🧪 [Tested source](examples/snippets/test/json_reporter.gleam)</sub>
+
+---
+
+## Gherkin / BDD Testing
+
+Write behavior-driven tests using Cucumber-style Given/When/Then syntax.
+
+### Inline DSL
+
+Define features directly in Gleam—no `.feature` files needed:
+
+```gleam
+import dream_test/assertions/should.{succeed}
+import dream_test/gherkin/feature.{feature, scenario, given, when, then}
+import dream_test/gherkin/steps.{type StepContext, get_int, new_registry, step}
+import dream_test/gherkin/world.{get_or, put}
+import dream_test/types.{type AssertionResult}
+
+fn step_have_items(context: StepContext) -> AssertionResult {
+  put(context.world, "cart", get_int(context.captures, 0) |> result.unwrap(0))
+  succeed()
+}
+
+fn step_add_items(context: StepContext) -> AssertionResult {
+  let current = get_or(context.world, "cart", 0)
+  let to_add = get_int(context.captures, 0) |> result.unwrap(0)
+  put(context.world, "cart", current + to_add)
+  succeed()
+}
+
+fn step_should_have(context: StepContext) -> AssertionResult {
+  let expected = get_int(context.captures, 0) |> result.unwrap(0)
+  get_or(context.world, "cart", 0)
+  |> should()
+  |> equal(expected)
+  |> or_fail_with("Cart count mismatch")
+}
+
+pub fn tests() {
+  let steps =
+    new_registry()
+    |> step("I have {int} items in my cart", step_have_items)
+    |> step("I add {int} more items", step_add_items)
+    |> step("I should have {int} items total", step_should_have)
+
+  feature("Shopping Cart", steps, [
+    scenario("Adding items to cart", [
+      given("I have 3 items in my cart"),
+      when("I add 2 more items"),
+      then("I should have 5 items total"),
+    ]),
+  ])
+}
+```
+
+```
+Feature: Shopping Cart
+  Scenario: Adding items to cart ✓ (3ms)
+
+1 scenario (1 passed) in 3ms
+```
+
+<sub>🧪 [Tested source](examples/snippets/test/gherkin_hero.gleam)</sub>
+
+### .feature File Support
+
+Parse standard Gherkin `.feature` files:
+
+```gherkin
+# test/cart.feature
+@shopping
+Feature: Shopping Cart
+  As a customer I want to add items to my cart
+
+  Background:
+    Given I have an empty cart
+
+  @smoke
+  Scenario: Adding items
+    When I add 3 items
+    Then the cart should have 3 items
+```
+
+<sub>🧪 [Tested source](examples/snippets/test/cart.feature)</sub>
+
+```gleam
+import dream_test/gherkin/feature.{FeatureConfig, to_test_suite}
+import dream_test/gherkin/parser
+
+pub fn tests() {
+  let steps = new_registry() |> register_steps()
+
+  // Parse the .feature file
+  let assert Ok(feature) = parser.parse_file("test/cart.feature")
+
+  // Convert to TestSuite
+  let config = FeatureConfig(feature: feature, step_registry: steps)
+  to_test_suite("cart_test", config)
+}
+```
+
+<sub>🧪 [Tested source](examples/snippets/test/gherkin_file.gleam)</sub>
+
+### Step Placeholders
+
+Capture values from step text using typed placeholders:
+
+| Placeholder | Matches              | Example         |
+| ----------- | -------------------- | --------------- |
+| `{int}`     | Integers             | `42`, `-5`      |
+| `{float}`   | Decimals             | `3.14`, `-0.5`  |
+| `{string}`  | Quoted strings       | `"hello world"` |
+| `{word}`    | Single unquoted word | `alice`         |
+
+Numeric placeholders work with prefixes/suffixes—`${float}` matches `$19.99` and captures `19.99`:
+
+```gleam
+fn step_have_balance(context: StepContext) -> AssertionResult {
+  // {float} captures the numeric value (even with $ prefix)
+  let balance = get_float(context.captures, 0) |> result.unwrap(0.0)
+  put(context.world, "balance", balance)
+  succeed()
+}
+
+pub fn register(registry: StepRegistry) -> StepRegistry {
+  registry
+  |> step("I have a balance of ${float}", step_have_balance)
+  |> step("I withdraw ${float}", step_withdraw)
+  |> step("my balance should be ${float}", step_balance_is)
+}
+```
+
+<sub>🧪 [Tested source](examples/snippets/test/gherkin_step_handler.gleam)</sub>
+
+### Background & Tags
+
+Use `background` for shared setup and `with_tags` for filtering:
+
+```gleam
+import dream_test/gherkin/feature.{
+  background, feature_with_background, scenario, with_tags,
+}
+
+pub fn tests() {
+  let bg = background([given("I have an empty cart")])
+
+  feature_with_background("Shopping Cart", steps, bg, [
+    scenario("Adding items", [
+      when("I add 3 items"),
+      then("I should have 3 items"),
+    ])
+      |> with_tags(["smoke"]),
+    scenario("Adding more items", [
+      when("I add 2 items"),
+      and("I add 3 items"),
+      then("I should have 5 items"),
+    ]),
+  ])
+}
+```
+
+<sub>🧪 [Tested source](examples/snippets/test/gherkin_feature.gleam)</sub>
+
+### Feature Discovery
+
+Load multiple `.feature` files with glob patterns:
+
+```gleam
+import dream_test/gherkin/discover
+
+pub fn tests() {
+  let steps = new_registry() |> register_steps()
+
+  // Discover and load all .feature files
+  discover.features("test/**/*.feature")
+  |> discover.with_registry(steps)
+  |> discover.to_suite("my_features")
+}
+```
+
+<sub>🧪 [Tested source](examples/snippets/test/gherkin_discover.gleam)</sub>
+
+Supported glob patterns:
+
+| Pattern              | Matches                                   |
+| -------------------- | ----------------------------------------- |
+| `features/*.feature` | All `.feature` files in `features/`       |
+| `test/**/*.feature`  | Recursive search in `test/`               |
+| `*.feature`          | All `.feature` files in current directory |
+
+### Parallel Execution
+
+Gherkin scenarios run in parallel like all other tests. Each scenario gets its own isolated World state, but external resources (databases, servers) are shared. See [Shared Resource Warning](#shared-resource-warning) for guidance on handling shared state.
+
+### Full Example
+
+See [examples/shopping_cart](examples/shopping_cart) for a complete Gherkin BDD example with:
+
+- Inline DSL features ([test/features/shopping_cart.gleam](examples/shopping_cart/test/features/shopping_cart.gleam))
+- `.feature` file ([features/shopping_cart.feature](examples/shopping_cart/features/shopping_cart.feature))
+- Step definitions ([test/steps/](examples/shopping_cart/test/steps/))
+- Application code ([src/shopping_cart/](examples/shopping_cart/src/shopping_cart/))
+
 ---
 
 ## Lifecycle Hooks
@@ -258,17 +587,17 @@ that let you run code before and after tests.
 
 ```gleam
 import dream_test/unit.{describe, it, before_each, after_each, before_all, after_all}
-import dream_test/types.{AssertionOk}
+import dream_test/assertions/should.{succeed}
 
 describe("Database tests", [
   before_all(fn() {
     start_database()
-    AssertionOk
+    succeed()
   }),
 
   before_each(fn() {
     begin_transaction()
-    AssertionOk
+    succeed()
   }),
 
   it("creates a user", fn() { ... }),
@@ -276,12 +605,12 @@ describe("Database tests", [
 
   after_each(fn() {
     rollback_transaction()
-    AssertionOk
+    succeed()
   }),
 
   after_all(fn() {
     stop_database()
-    AssertionOk
+    succeed()
   }),
 ])
 ```
@@ -339,24 +668,24 @@ setup, inner-to-outer for teardown:
 describe("Outer", [
   before_each(fn() {
     io.println("1. outer setup")
-    AssertionOk
+    succeed()
   }),
   after_each(fn() {
     io.println("4. outer teardown")
-    AssertionOk
+    succeed()
   }),
   describe("Inner", [
     before_each(fn() {
       io.println("2. inner setup")
-      AssertionOk
+      succeed()
     }),
     after_each(fn() {
       io.println("3. inner teardown")
-      AssertionOk
+      succeed()
     }),
     it("test", fn() {
       io.println("(test)")
-      AssertionOk
+      succeed()
     }),
   ]),
 ])
@@ -380,13 +709,13 @@ If a hook fails, Dream Test handles it gracefully:
 describe("Handles failures", [
   before_all(fn() {
     case connect_to_database() {
-      Ok(_) -> AssertionOk
+      Ok(_) -> succeed()
       Error(e) -> fail_with("Database connection failed: " <> e)
     }
   }),
   // If before_all fails, these tests are marked SetupFailed (not run)
-  it("test1", fn() { AssertionOk }),
-  it("test2", fn() { AssertionOk }),
+  it("test1", fn() { succeed() }),
+  it("test2", fn() { succeed() }),
 ])
 ```
 
@@ -396,13 +725,14 @@ describe("Handles failures", [
 
 ## BEAM-Powered Test Isolation
 
-Every test runs in its own BEAM process:
+Every test runs in its own lightweight BEAM process—this is what makes Dream Test fast:
 
 | Feature                | What it means                                                |
 | ---------------------- | ------------------------------------------------------------ |
+| **Parallel execution** | Tests run concurrently; 207 tests complete in ~300ms         |
 | **Crash isolation**    | A `panic` in one test doesn't affect others                  |
 | **Timeout handling**   | Slow tests get killed; suite keeps running                   |
-| **Parallel execution** | Tests run concurrently (configurable)                        |
+| **Per-test timing**    | See exactly how long each test takes                         |
 | **Automatic cleanup**  | Resources linked to the test process are freed automatically |
 
 ```gleam
@@ -433,6 +763,23 @@ run_all_with_config(config, test_cases)
 ```
 
 <sub>🧪 [Tested source](examples/snippets/test/runner_config.gleam)</sub>
+
+### Shared Resource Warning
+
+⚠️ **Tests share external resources.** Each test runs in its own BEAM process with isolated memory, but databases, servers, file systems, and APIs are shared.
+
+If your tests interact with shared resources, either:
+
+1. **Isolate resources per test** — unique database names, separate ports, temp directories
+2. **Limit concurrency** — set `max_concurrency: 1` for sequential execution
+
+```gleam
+// Sequential execution for tests with shared state
+let config = RunnerConfig(max_concurrency: 1, default_timeout_ms: 30_000)
+run_all_with_config(config, test_cases)
+```
+
+<sub>🧪 [Tested source](examples/snippets/test/sequential_execution.gleam)</sub>
 
 ---
 
@@ -499,7 +846,7 @@ Benefits:
 
 ## Status
 
-**Stable** — v1.0 release. API is stable and ready for production use.
+**Stable** — v1.1 release. API is stable and ready for production use.
 
 | Feature                           | Status    |
 | --------------------------------- | --------- |
@@ -507,12 +854,16 @@ Benefits:
 | Lifecycle hooks                   | ✅ Stable |
 | Assertions (`should.*`)           | ✅ Stable |
 | BDD Reporter                      | ✅ Stable |
+| JSON Reporter                     | ✅ Stable |
 | Parallel execution                | ✅ Stable |
 | Process isolation                 | ✅ Stable |
 | Crash handling                    | ✅ Stable |
 | Timeout handling                  | ✅ Stable |
+| Per-test timing                   | ✅ Stable |
 | CI exit codes                     | ✅ Stable |
 | Polling helpers                   | ✅ Stable |
+| Gherkin/Cucumber BDD              | ✅ Stable |
+| Tagging & filtering               | ✅ Stable |
 
 ---
 
@@ -535,7 +886,5 @@ MIT — see [LICENSE.md](LICENSE.md)
 ---
 
 <div align="center">
-  <sub>Part of the <a href="https://github.com/TrustBound/dream">Dream</a> ecosystem for Gleam</sub>
-  <br>
-  <sub>Built in Gleam, on the BEAM, by the Dream Team ❤️</sub>
+  <sub>Built in Gleam, on the BEAM, by the <a href="https://github.com/trustbound/dream">Dream Team</a> ❤️</sub>
 </div>

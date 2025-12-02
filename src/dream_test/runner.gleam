@@ -59,17 +59,20 @@
 //// }
 
 import dream_test/parallel
+import dream_test/timing
 import dream_test/types.{
   type SingleTestConfig, type Status, type TestCase, type TestResult,
   type TestSuite, AssertionFailed, AssertionOk, AssertionSkipped, Failed, Passed,
-  SetupFailed, Skipped, TestCase, TestResult, TimedOut,
+  SetupFailed, Skipped, SuiteGroup, SuiteTest, TestCase, TestResult, TestSuite,
+  TimedOut,
 }
 import gleam/list
+import gleam/option.{type Option, None, Some}
 
 /// Configuration for test execution.
 ///
-/// Controls how many tests run concurrently and how long each test is allowed
-/// to run before being killed.
+/// Controls how many tests run concurrently, how long each test is allowed
+/// to run before being killed, and which tests to run.
 ///
 /// ## Fields
 ///
@@ -80,17 +83,32 @@ import gleam/list
 /// - `default_timeout_ms` - How long (in milliseconds) a test can run before
 ///   being killed. Protects against infinite loops and hanging operations.
 ///
+/// - `test_filter` - Optional predicate to filter which tests run. When `Some`,
+///   only tests where the predicate returns `True` will execute. When `None`,
+///   all tests run.
+///
 /// ## Examples
 ///
 /// ```gleam
 /// // Fast parallel execution
-/// RunnerConfig(max_concurrency: 8, default_timeout_ms: 2000)
+/// RunnerConfig(max_concurrency: 8, default_timeout_ms: 2000, test_filter: None)
 ///
 /// // Sequential execution for debugging
-/// RunnerConfig(max_concurrency: 1, default_timeout_ms: 5000)
+/// RunnerConfig(max_concurrency: 1, default_timeout_ms: 5000, test_filter: None)
 ///
-/// // Long timeout for integration tests
-/// RunnerConfig(max_concurrency: 4, default_timeout_ms: 60_000)
+/// // Run only tests tagged "unit"
+/// RunnerConfig(
+///   max_concurrency: 4,
+///   default_timeout_ms: 5000,
+///   test_filter: Some(fn(config) { list.contains(config.tags, "unit") }),
+/// )
+///
+/// // Run tests NOT tagged "slow"
+/// RunnerConfig(
+///   max_concurrency: 4,
+///   default_timeout_ms: 5000,
+///   test_filter: Some(fn(config) { !list.contains(config.tags, "slow") }),
+/// )
 /// ```
 ///
 pub type RunnerConfig {
@@ -100,6 +118,10 @@ pub type RunnerConfig {
     max_concurrency: Int,
     /// Default timeout in milliseconds for each test.
     default_timeout_ms: Int,
+    /// Optional filter predicate. When Some, only tests where the
+    /// predicate returns True will run. Receives the full SingleTestConfig,
+    /// allowing filtering by tags, name, kind, or any other field.
+    test_filter: Option(fn(SingleTestConfig) -> Bool),
   )
 }
 
@@ -108,6 +130,7 @@ pub type RunnerConfig {
 /// Returns a configuration with:
 /// - 4 concurrent tests
 /// - 5 second timeout per test
+/// - No test filter (all tests run)
 ///
 /// This is suitable for most unit test suites.
 ///
@@ -115,11 +138,11 @@ pub type RunnerConfig {
 ///
 /// ```gleam
 /// let config = default_config()
-/// // RunnerConfig(max_concurrency: 4, default_timeout_ms: 5000)
+/// // RunnerConfig(max_concurrency: 4, default_timeout_ms: 5000, test_filter: None)
 /// ```
 ///
 pub fn default_config() -> RunnerConfig {
-  RunnerConfig(max_concurrency: 4, default_timeout_ms: 5000)
+  RunnerConfig(max_concurrency: 4, default_timeout_ms: 5000, test_filter: None)
 }
 
 /// Configuration for sequential execution.
@@ -127,6 +150,7 @@ pub fn default_config() -> RunnerConfig {
 /// Returns a configuration with:
 /// - 1 concurrent test (sequential)
 /// - 5 second timeout per test
+/// - No test filter (all tests run)
 ///
 /// Use this when debugging test failures or when tests must not run in parallel.
 ///
@@ -139,7 +163,7 @@ pub fn default_config() -> RunnerConfig {
 /// ```
 ///
 pub fn sequential_config() -> RunnerConfig {
-  RunnerConfig(max_concurrency: 1, default_timeout_ms: 5000)
+  RunnerConfig(max_concurrency: 1, default_timeout_ms: 5000, test_filter: None)
 }
 
 /// Run all tests with custom configuration.
@@ -149,12 +173,17 @@ pub fn sequential_config() -> RunnerConfig {
 /// as `TimedOut`.
 ///
 /// Results are returned in the same order as the input tests, regardless of
-/// which tests finish first.
+/// which tests finish first. If a `test_filter` is provided in the config,
+/// only tests where the predicate returns `True` will run.
 ///
 /// ## Example
 ///
 /// ```gleam
-/// let config = RunnerConfig(max_concurrency: 8, default_timeout_ms: 10_000)
+/// let config = RunnerConfig(
+///   max_concurrency: 8,
+///   default_timeout_ms: 10_000,
+///   test_filter: None,
+/// )
 ///
 /// tests()
 /// |> to_test_cases("my_test")
@@ -162,25 +191,50 @@ pub fn sequential_config() -> RunnerConfig {
 /// |> report(io.print)
 /// ```
 ///
+/// ## Filtering Example
+///
+/// ```gleam
+/// let config = RunnerConfig(
+///   max_concurrency: 4,
+///   default_timeout_ms: 5000,
+///   test_filter: Some(fn(c) { list.contains(c.tags, "unit") }),
+/// )
+/// ```
+///
 /// ## Parameters
 ///
-/// - `config` - Execution settings (concurrency, timeout)
+/// - `config` - Execution settings (concurrency, timeout, filter)
 /// - `test_cases` - List of test cases to run
 ///
 /// ## Returns
 ///
-/// List of `TestResult` in the same order as the input tests.
+/// List of `TestResult` in the same order as the input tests (after filtering).
 ///
 pub fn run_all_with_config(
   config: RunnerConfig,
   test_cases: List(TestCase),
 ) -> List(TestResult) {
+  let filtered_cases = apply_test_filter(config.test_filter, test_cases)
   let parallel_config =
     parallel.ParallelConfig(
       max_concurrency: config.max_concurrency,
       default_timeout_ms: config.default_timeout_ms,
     )
-  parallel.run_parallel(parallel_config, test_cases)
+  parallel.run_parallel(parallel_config, filtered_cases)
+}
+
+fn apply_test_filter(
+  filter: Option(fn(SingleTestConfig) -> Bool),
+  test_cases: List(TestCase),
+) -> List(TestCase) {
+  case filter {
+    None -> test_cases
+    Some(predicate) ->
+      list.filter(test_cases, fn(test_case) {
+        let TestCase(config) = test_case
+        predicate(config)
+      })
+  }
 }
 
 /// Run all tests with default configuration.
@@ -275,23 +329,70 @@ pub fn run_all(test_cases: List(TestCase)) -> List(TestResult) {
 ///
 /// ## Parameters
 ///
-/// - `config` - Execution settings (concurrency, timeout)
+/// - `config` - Execution settings (concurrency, timeout, filter)
 /// - `suite` - The test suite from `to_test_suite`
 ///
 /// ## Returns
 ///
-/// List of `TestResult` for all tests in the suite.
+/// List of `TestResult` for all tests in the suite (after filtering).
 ///
 pub fn run_suite_with_config(
   config: RunnerConfig,
   suite: TestSuite,
 ) -> List(TestResult) {
+  let filtered_suite = apply_suite_filter(config.test_filter, suite)
   let parallel_config =
     parallel.ParallelConfig(
       max_concurrency: config.max_concurrency,
       default_timeout_ms: config.default_timeout_ms,
     )
-  parallel.run_suite_parallel(parallel_config, suite)
+  parallel.run_suite_parallel(parallel_config, filtered_suite)
+}
+
+fn apply_suite_filter(
+  filter: Option(fn(SingleTestConfig) -> Bool),
+  suite: TestSuite,
+) -> TestSuite {
+  case filter {
+    None -> suite
+    Some(predicate) -> filter_suite(predicate, suite)
+  }
+}
+
+fn filter_suite(
+  predicate: fn(SingleTestConfig) -> Bool,
+  suite: TestSuite,
+) -> TestSuite {
+  let filtered_items = filter_suite_items(predicate, suite.items)
+  TestSuite(..suite, items: filtered_items)
+}
+
+fn filter_suite_items(
+  predicate: fn(SingleTestConfig) -> Bool,
+  items: List(types.TestSuiteItem),
+) -> List(types.TestSuiteItem) {
+  list.filter_map(items, fn(item) { filter_suite_item(predicate, item) })
+}
+
+fn filter_suite_item(
+  predicate: fn(SingleTestConfig) -> Bool,
+  item: types.TestSuiteItem,
+) -> Result(types.TestSuiteItem, Nil) {
+  case item {
+    SuiteTest(TestCase(config)) ->
+      case predicate(config) {
+        True -> Ok(item)
+        False -> Error(Nil)
+      }
+    SuiteGroup(nested_suite) -> {
+      let filtered = filter_suite(predicate, nested_suite)
+      // Keep group only if it has remaining tests
+      case list.is_empty(filtered.items) {
+        True -> Error(Nil)
+        False -> Ok(SuiteGroup(filtered))
+      }
+    }
+  }
 }
 
 /// Run a test suite with default configuration.
@@ -413,7 +514,9 @@ pub fn run_all_sequential(test_cases: List(TestCase)) -> List(TestResult) {
 /// ```
 ///
 pub fn run_single_test(config: SingleTestConfig) -> TestResult {
+  let start_time = timing.now_ms()
   let assertion_result = config.run()
+  let duration_ms = timing.now_ms() - start_time
 
   let #(status, failures) = case assertion_result {
     AssertionOk -> #(Passed, [])
@@ -425,7 +528,7 @@ pub fn run_single_test(config: SingleTestConfig) -> TestResult {
     name: config.name,
     full_name: config.full_name,
     status: status,
-    duration_ms: 0,
+    duration_ms: duration_ms,
     tags: config.tags,
     failures: failures,
     kind: config.kind,

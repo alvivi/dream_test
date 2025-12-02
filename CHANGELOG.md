@@ -7,6 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-12-02
+
+### Added
+
+- **Test tagging and filtering** (`dream_test/unit`, `dream_test/runner`)
+
+  - `with_tags()` function to tag unit tests for categorization
+  - `RunnerConfig.test_filter` predicate for selective test execution
+  - Filter by tags, name, kind, or any `SingleTestConfig` field
+  - Works with both flat mode (`run_all`) and suite mode (`run_suite`)
+  - Unified tagging across unit tests and Gherkin scenarios
+
+- **`succeed()` function** (`dream_test/assertions/should`)
+
+  - Explicit success counterpart to `fail_with()` for conditional branches
+  - Use in `case` expressions where all branches must return `AssertionResult`
+  - Recommended over importing `AssertionOk` directly in user code
+
+- **Gherkin/Cucumber BDD Support**
+
+  - Full Cucumber-style Given/When/Then testing with typed step definitions
+  - Inline DSL for defining features directly in Gleam (`feature`, `scenario`, `given`, `when`, `then`)
+  - `.feature` file parser supporting standard Gherkin syntax
+  - Step registry with radix trie for O(words) step lookup
+  - Typed placeholders: `{int}`, `{float}`, `{string}`, `{word}`
+  - Prefix/suffix support for placeholders (e.g., `${float}` matches `$19.99`)
+  - World state management with ETS-backed mutable scenario state
+  - Background steps for shared setup across scenarios
+  - Tag support for filtering scenarios (`@smoke`, `@slow`, etc.)
+  - Scenario Outline with Examples table expansion
+  - Data tables and doc strings in steps
+  - Gherkin-style reporter with scenario-level output
+
+- **Feature Discovery** (`dream_test/gherkin/discover`)
+
+  - Builder pattern for loading `.feature` files with glob patterns
+  - `features()` → `with_registry()` → `to_suite()` fluent API
+  - Graceful error handling for parse failures
+
+- **Per-Test Timing** (`dream_test/timing`)
+
+  - Human-readable duration formatting (ms, s, m, h)
+  - Per-test and total duration in BDD and Gherkin reporters
+  - Monotonic time measurement for accurate elapsed time
+
+- **JSON Reporter** (`dream_test/reporter/json`)
+
+  - Machine-readable JSON output for CI/CD integration
+  - `format` and `format_pretty` for string output
+  - `report` and `report_pretty` for pipeline integration
+  - Includes system info (OS, OTP version, Gleam version)
+  - Detailed failure payloads with expected/actual values
+  - Composable with BDD reporter for dual output
+
+### Dependencies
+
+- Added `gleam_regexp` dependency for step pattern tokenization
+- Added `gleam_json` dependency for JSON reporter
+
+### Documentation
+
+- Added comprehensive Gherkin/BDD section to README
+- Added JSON reporter section to README
+- Added shopping cart example in `examples/shopping_cart/`
+- Added Gherkin and JSON reporter snippets in `examples/snippets/`
+- Updated feature status table with Gherkin/Cucumber BDD and JSON Reporter
+- Added custom matchers documentation with example snippet
+- Updated hexdocs for all new public functions
+
 ## [1.0.3] - 2025-12-01
 
 ### Changed
@@ -122,7 +191,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - STANDARDS document for code conventions
 - API documentation for all public modules
 
-[Unreleased]: https://github.com/TrustBound/dream_test/compare/1.0.3...HEAD
+[Unreleased]: https://github.com/TrustBound/dream_test/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/TrustBound/dream_test/compare/1.0.3...1.1.0
 [1.0.3]: https://github.com/TrustBound/dream_test/compare/1.0.2...1.0.3
 [1.0.2]: https://github.com/TrustBound/dream_test/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/TrustBound/dream_test/compare/1.0.0...1.0.1

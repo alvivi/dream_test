@@ -1,14 +1,16 @@
 # Simple Makefile for dream_test
 
-.PHONY: test bootstrap all
+.PHONY: test examples all
 
-# Run gleeunit tests
+# Run dream_test tests
 test:
 	gleam test
 
-# Run dream_test's own tests using dream_test itself
-bootstrap:
-	gleam run -m dream_test_test
+# Run example project tests
+examples:
+	cd examples/snippets && gleam test
+	cd examples/shopping_cart && gleam test
+	cd examples/cache_app && gleam test
 
-# Run everything: gleeunit tests + dream_test's self tests
-all: test bootstrap
+# Run everything: dream_test tests + examples
+all: test examples

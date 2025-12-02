@@ -74,7 +74,7 @@
 ////
 //// ```gleam
 //// import dream_test/assertions/should.{
-////   should, equal, be_ok, be_some, or_fail_with, fail_with,
+////   should, equal, be_ok, be_some, or_fail_with, fail_with, succeed,
 //// }
 //// ```
 
@@ -541,4 +541,28 @@ pub fn fail_with(message: String) -> AssertionResult {
     message: message,
     payload: gleam_option.None,
   ))
+}
+
+/// Explicitly mark an assertion as successful.
+///
+/// Use this when you need to explicitly succeed in a conditional branch,
+/// as the counterpart to `fail_with`.
+///
+/// ## Example
+///
+/// ```gleam
+/// case result {
+///   Ok(_) -> succeed()
+///   Error(_) -> fail_with("Should have succeeded")
+/// }
+/// ```
+///
+/// ## When to Use
+///
+/// - In `case` branches where success is the expected outcome
+/// - When all branches of a case must return an `AssertionResult`
+/// - To make intent explicit rather than relying on implicit success
+///
+pub fn succeed() -> AssertionResult {
+  AssertionOk
 }

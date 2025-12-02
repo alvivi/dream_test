@@ -1,13 +1,16 @@
 import dream_test/assertions/should.{
-  be_false, be_true, equal, fail_with, or_fail_with, should,
+  be_false, be_true, equal, fail_with, have_length, or_fail_with, should,
 }
-import dream_test/runner.{has_failures, run_single_test}
+import dream_test/runner.{
+  RunnerConfig, has_failures, run_all_with_config, run_single_test,
+}
 import dream_test/types.{
-  type TestResult, AssertionFailed, AssertionFailure, AssertionOk,
-  EqualityFailure, Failed, Passed, Pending, SetupFailed, SingleTestConfig,
-  Skipped, TestResult, TimedOut, Unit,
+  type SingleTestConfig, type TestResult, AssertionFailed, AssertionFailure,
+  AssertionOk, EqualityFailure, Failed, Passed, Pending, SetupFailed,
+  SingleTestConfig, Skipped, TestResult, TimedOut, Unit,
 }
-import dream_test/unit.{describe, it}
+import dream_test/unit.{describe, it, to_test_cases, with_tags}
+import gleam/list
 import gleam/option.{None, Some}
 
 pub fn tests() {
@@ -230,6 +233,123 @@ pub fn tests() {
         |> should()
         |> be_true()
         |> or_fail_with("Should detect failure at end of list")
+      }),
+    ]),
+    describe("test_filter", [
+      it("runs all tests when filter is None", fn() {
+        // Arrange
+        let test_tree =
+          describe("Feature", [
+            it("test one", fn() { AssertionOk })
+              |> with_tags(["unit"]),
+            it("test two", fn() { AssertionOk })
+              |> with_tags(["integration"]),
+          ])
+        let test_cases = to_test_cases("test_module", test_tree)
+        let config =
+          RunnerConfig(
+            max_concurrency: 1,
+            default_timeout_ms: 5000,
+            test_filter: None,
+          )
+
+        // Act
+        let results = run_all_with_config(config, test_cases)
+
+        // Assert
+        results
+        |> should()
+        |> have_length(2)
+        |> or_fail_with("Should run all tests when filter is None")
+      }),
+      it("filters tests by tag", fn() {
+        // Arrange
+        let test_tree =
+          describe("Feature", [
+            it("unit test", fn() { AssertionOk })
+              |> with_tags(["unit"]),
+            it("integration test", fn() { AssertionOk })
+              |> with_tags(["integration"]),
+            it("another unit test", fn() { AssertionOk })
+              |> with_tags(["unit"]),
+          ])
+        let test_cases = to_test_cases("test_module", test_tree)
+        let config =
+          RunnerConfig(
+            max_concurrency: 1,
+            default_timeout_ms: 5000,
+            test_filter: Some(fn(c: SingleTestConfig) {
+              list.contains(c.tags, "unit")
+            }),
+          )
+
+        // Act
+        let results = run_all_with_config(config, test_cases)
+
+        // Assert
+        results
+        |> should()
+        |> have_length(2)
+        |> or_fail_with("Should only run tests tagged 'unit'")
+      }),
+      it("filters out all tests when none match", fn() {
+        // Arrange
+        let test_tree =
+          describe("Feature", [
+            it("test one", fn() { AssertionOk })
+              |> with_tags(["unit"]),
+            it("test two", fn() { AssertionOk })
+              |> with_tags(["unit"]),
+          ])
+        let test_cases = to_test_cases("test_module", test_tree)
+        let config =
+          RunnerConfig(
+            max_concurrency: 1,
+            default_timeout_ms: 5000,
+            test_filter: Some(fn(c: SingleTestConfig) {
+              list.contains(c.tags, "integration")
+            }),
+          )
+
+        // Act
+        let results = run_all_with_config(config, test_cases)
+
+        // Assert
+        results
+        |> should()
+        |> have_length(0)
+        |> or_fail_with("Should run no tests when none match filter")
+      }),
+      it("can filter by test name", fn() {
+        // Arrange
+        let test_tree =
+          describe("Feature", [
+            it("adds numbers", fn() { AssertionOk }),
+            it("subtracts numbers", fn() { AssertionOk }),
+            it("adds strings", fn() { AssertionOk }),
+          ])
+        let test_cases = to_test_cases("test_module", test_tree)
+        let config =
+          RunnerConfig(
+            max_concurrency: 1,
+            default_timeout_ms: 5000,
+            test_filter: Some(fn(c: SingleTestConfig) {
+              case c.name {
+                "adds numbers" -> True
+                "adds strings" -> True
+                _ -> False
+              }
+            }),
+          )
+
+        // Act
+        let results = run_all_with_config(config, test_cases)
+
+        // Assert
+        results
+        |> should()
+        |> have_length(2)
+        |> or_fail_with("Should filter by test name")
       }),
     ]),
   ])

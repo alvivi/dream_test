@@ -1,7 +1,11 @@
-import dream_test/assertions/should.{equal, fail_with, or_fail_with, should}
+import dream_test/assertions/should.{
+  be_empty, equal, fail_with, or_fail_with, should,
+}
 import dream_test/runner.{run_all}
 import dream_test/types.{AssertionOk, Skipped}
-import dream_test/unit.{type UnitTest, describe, it, skip, to_test_cases}
+import dream_test/unit.{
+  type UnitTest, describe, it, skip, to_test_cases, with_tags,
+}
 
 pub fn tests() {
   describe("Unit DSL", [
@@ -103,6 +107,75 @@ pub fn tests() {
             |> or_fail_with("Second full_name should include describe and it")
           }
           _ -> fail_with("Expected at least two test cases")
+        }
+      }),
+    ]),
+    describe("with_tags", [
+      it("sets tags on a test", fn() {
+        // Arrange
+        let test_tree: UnitTest =
+          describe("Feature", [
+            it("tagged test", fn() { AssertionOk })
+            |> with_tags(["unit", "fast"]),
+          ])
+
+        // Act
+        let test_cases = to_test_cases("test_module", test_tree)
+        let results = run_all(test_cases)
+
+        // Assert
+        case results {
+          [first] -> {
+            first.tags
+            |> should()
+            |> equal(["unit", "fast"])
+            |> or_fail_with("Tags should be set on test result")
+          }
+          _ -> fail_with("Expected exactly one test case")
+        }
+      }),
+      it("replaces existing tags", fn() {
+        // Arrange
+        let test_tree: UnitTest =
+          describe("Feature", [
+            it("test", fn() { AssertionOk })
+            |> with_tags(["first"])
+            |> with_tags(["second"]),
+          ])
+
+        // Act
+        let test_cases = to_test_cases("test_module", test_tree)
+        let results = run_all(test_cases)
+
+        // Assert
+        case results {
+          [first] -> {
+            first.tags
+            |> should()
+            |> equal(["second"])
+            |> or_fail_with("Second with_tags should replace first")
+          }
+          _ -> fail_with("Expected exactly one test case")
+        }
+      }),
+      it("leaves tests without tags empty", fn() {
+        // Arrange
+        let test_tree: UnitTest =
+          describe("Feature", [it("untagged test", fn() { AssertionOk })])
+
+        // Act
+        let test_cases = to_test_cases("test_module", test_tree)
+        let results = run_all(test_cases)
+
+        // Assert
+        case results {
+          [first] -> {
+            first.tags
+            |> should()
+            |> be_empty()
+            |> or_fail_with("Untagged test should have empty tags")
+          }
+          _ -> fail_with("Expected exactly one test case")
         }
       }),
     ]),
