@@ -266,36 +266,24 @@ fn format_failure_payload(
 
 fn format_summary(results: List(TestResult)) -> String {
   let total = list.length(results)
-  let passed = count_by_status(results, Passed)
   let failed = count_by_status(results, Failed)
   let skipped = count_by_status(results, Skipped)
   let pending = count_by_status(results, Pending)
   let timed_out = count_by_status(results, TimedOut)
   let setup_failed = count_by_status(results, SetupFailed)
+  let passed = total - failed - skipped - pending - timed_out - setup_failed
   let total_duration = sum_durations(results, 0)
 
-  let scenario_word = case total {
-    1 -> "scenario"
-    _ -> "scenarios"
-  }
-
-  let details =
-    build_summary_details(
-      passed,
-      failed,
-      skipped,
-      pending,
-      timed_out,
-      setup_failed,
-    )
-
   string.concat([
+    "Summary: ",
     int.to_string(total),
-    " ",
-    scenario_word,
-    " (",
-    details,
-    ") in ",
+    " run, ",
+    int.to_string(failed),
+    " failed, ",
+    int.to_string(passed),
+    " passed",
+    build_summary_suffix(skipped, pending, timed_out, setup_failed),
+    " in ",
     timing.format_duration_ms(total_duration),
     "\n",
   ])
@@ -308,9 +296,7 @@ fn sum_durations(results: List(TestResult), total: Int) -> Int {
   }
 }
 
-fn build_summary_details(
-  passed: Int,
-  failed: Int,
+fn build_summary_suffix(
   skipped: Int,
   pending: Int,
   timed_out: Int,
@@ -318,25 +304,29 @@ fn build_summary_details(
 ) -> String {
   let parts =
     []
-    |> add_if_nonzero(passed, "passed")
-    |> add_if_nonzero(failed, "failed")
-    |> add_if_nonzero(skipped, "skipped")
-    |> add_if_nonzero(pending, "pending")
-    |> add_if_nonzero(timed_out, "timed out")
-    |> add_if_nonzero(setup_failed, "setup failed")
-    |> list.reverse()
+    |> add_summary_part_if_nonzero(skipped, " skipped")
+    |> add_summary_part_if_nonzero(pending, " pending")
+    |> add_summary_part_if_nonzero(timed_out, " timed out")
+    |> add_summary_part_if_nonzero(setup_failed, " setup failed")
 
-  string.join(parts, ", ")
+  format_summary_parts(parts)
 }
 
-fn add_if_nonzero(
+fn format_summary_parts(parts: List(String)) -> String {
+  case parts {
+    [] -> ""
+    _ -> string.concat([", ", string.join(parts, ", ")])
+  }
+}
+
+fn add_summary_part_if_nonzero(
   parts: List(String),
   count: Int,
   label: String,
 ) -> List(String) {
   case count {
     0 -> parts
-    _ -> [int.to_string(count) <> " " <> label, ..parts]
+    _ -> [string.concat([int.to_string(count), label]), ..parts]
   }
 }
 

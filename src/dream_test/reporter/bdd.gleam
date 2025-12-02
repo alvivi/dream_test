@@ -117,7 +117,7 @@ fn format_gherkin_results(results: List(TestResult)) -> String {
 }
 
 fn remove_summary_line(text: String) -> String {
-  // Find and remove the last line (summary) if it contains "scenario"
+  // Find and remove the last line (summary) if it starts with "Summary:"
   let lines = string.split(text, "\n")
   let without_summary = remove_gherkin_summary(lines, [])
   string.join(without_summary, "\n")
@@ -131,7 +131,7 @@ fn remove_gherkin_summary(
     [] -> list.reverse(accumulated)
     [line] -> {
       // Check if this is the summary line
-      case string.contains(line, "scenario") {
+      case string.starts_with(line, "Summary:") {
         True -> list.reverse(accumulated)
         False -> list.reverse([line, ..accumulated])
       }
