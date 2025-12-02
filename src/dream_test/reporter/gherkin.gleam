@@ -7,21 +7,14 @@
 ////
 //// ```text
 //// Feature: Shopping Cart
-////   Scenario: Adding items ✓
-////     Given I have an empty cart
-////     When I add 5 items
-////     Then I should have 5 items
-////
-////   Scenario: Removing items ✗
-////     Given I have 10 items
-////     When I remove 3 items
-////     Then I should have 7 items
+////   Scenario: Adding items ✓ (2ms)
+////   Scenario: Removing items ✗ (3ms)
 ////       ✗ equal
 ////         Message: Item count mismatch
 ////         Expected: 7
 ////         Actual:   10
 ////
-//// 2 scenarios (1 passed, 1 failed)
+//// Summary: 2 run, 1 failed, 1 passed in 5ms
 //// ```
 ////
 //// ## Usage

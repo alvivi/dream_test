@@ -1,5 +1,5 @@
 import dream_test/assertions/should.{
-  be_empty, equal, fail_with, have_length, or_fail_with, should,
+  be_empty, equal, fail_with, or_fail_with, should,
 }
 import dream_test/runner.{run_all}
 import dream_test/types.{AssertionOk, Skipped}

@@ -37,9 +37,9 @@ pub fn tests() {
 
 ```
 Feature: Shopping Cart
-  Scenario: Adding items to cart ✓
+  Scenario: Adding items to cart ✓ (3ms)
 
-1 scenario (1 passed)
+Summary: 1 run, 0 failed, 1 passed in 3ms
 ```
 
 ### 📄 .feature File Support
@@ -199,6 +199,32 @@ pub fn be_even(result: MatchResult(Int)) -> MatchResult(Int) {
 4 |> should() |> be_even() |> or_fail_with("Should be even")
 ```
 
+### 📊 JSON Reporter
+
+Output test results as JSON for CI/CD integration, test aggregation, or tooling:
+
+```gleam
+import dream_test/reporter/json
+import dream_test/reporter/bdd.{report}
+
+pub fn main() {
+  to_test_cases("my_test", tests())
+  |> run_all()
+  |> report(io.print)           // Human-readable to stdout
+  |> json.report(write_to_file) // JSON to file
+  |> exit_on_failure()
+}
+```
+
+JSON output includes:
+
+- Schema version for forward compatibility
+- Timestamp and total duration
+- System info (OS, OTP version, Gleam version)
+- Summary counts (passed, failed, skipped, etc.)
+- Per-test details with name, full path, status, duration, tags, and failures
+- Detailed failure payloads with expected/actual values
+
 ### Additional Features
 
 - **Background steps** for shared setup across scenarios
@@ -210,7 +236,7 @@ pub fn be_even(result: MatchResult(Int)) -> MatchResult(Int) {
 ## New Dependencies
 
 - `gleam_regexp >= 1.0.0` — for step pattern tokenization
-- `dream_ets >= 1.0.0` — for World state management
+- `gleam_json >= 2.0.0` — for JSON reporter
 
 ## Upgrading
 

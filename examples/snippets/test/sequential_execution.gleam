@@ -28,7 +28,11 @@ pub fn tests() {
 pub fn main() {
   // Sequential execution for tests with shared state
   let config =
-    RunnerConfig(max_concurrency: 1, default_timeout_ms: 30_000, test_filter: None)
+    RunnerConfig(
+      max_concurrency: 1,
+      default_timeout_ms: 30_000,
+      test_filter: None,
+    )
 
   to_test_cases("sequential_test", tests())
   |> run_all_with_config(config, _)

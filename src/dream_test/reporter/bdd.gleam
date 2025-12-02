@@ -9,17 +9,17 @@
 //// ```text
 //// Calculator
 ////   add
-////     ✓ adds positive numbers
+////     ✓ adds positive numbers (1ms)
 ////     ✓ handles zero
 ////   subtract
 ////     ✓ subtracts positive numbers
-////     ✗ handles negative results
+////     ✗ handles negative results (2ms)
 ////       equal
 ////         Message: Should handle negative subtraction
 ////         Expected: -5
 ////         Actual:   5
 ////
-//// Summary: 4 run, 1 failed, 3 passed
+//// Summary: 4 run, 1 failed, 3 passed in 3ms
 //// ```
 ////
 //// ## Usage
@@ -117,7 +117,7 @@ fn format_gherkin_results(results: List(TestResult)) -> String {
 }
 
 fn remove_summary_line(text: String) -> String {
-  // Find and remove the last line (summary) if it starts with "Summary:"
+  // Find and remove the summary line (may have trailing empty lines)
   let lines = string.split(text, "\n")
   let without_summary = remove_gherkin_summary(lines, [])
   string.join(without_summary, "\n")
@@ -130,13 +130,19 @@ fn remove_gherkin_summary(
   case lines {
     [] -> list.reverse(accumulated)
     [line] -> {
-      // Check if this is the summary line
-      case string.starts_with(line, "Summary:") {
+      // Check if this is the summary line or trailing empty line
+      case string.starts_with(line, "Summary:") || line == "" {
         True -> list.reverse(accumulated)
         False -> list.reverse([line, ..accumulated])
       }
     }
-    [line, ..rest] -> remove_gherkin_summary(rest, [line, ..accumulated])
+    [line, ..rest] -> {
+      // Skip summary lines anywhere in the list
+      case string.starts_with(line, "Summary:") {
+        True -> remove_gherkin_summary(rest, accumulated)
+        False -> remove_gherkin_summary(rest, [line, ..accumulated])
+      }
+    }
   }
 }
 

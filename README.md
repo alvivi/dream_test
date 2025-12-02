@@ -79,6 +79,7 @@ dream_test = "~> 1.1"
 | **Lifecycle hooks**     | `before_all`, `before_each`, `after_each`, `after_all` for setup/teardown    |
 | **Tagging & filtering** | Tag tests and run subsets with custom filter predicates                      |
 | **Gleam-native**        | Pipe-first assertions that feel natural; no macros, no reflection, no magic  |
+| **Multiple reporters**  | BDD-style human output or JSON for CI/tooling integration                    |
 | **Familiar syntax**     | If you've used Jest, RSpec, or Mocha, you already know the basics            |
 | **Type-safe**           | Your tests are just Gleam code; the compiler catches mistakes early          |
 | **Gherkin/BDD**         | Write specs in plain English with Cucumber-style Given/When/Then             |
@@ -303,12 +304,12 @@ test_cases |> run_all_with_config(config)
 
 The filter is a predicate function receiving `SingleTestConfig`, so you can filter by tags, name, or any other field. You control how to populate the filter—from environment variables, CLI args, or hardcoded for debugging.
 
-| Use case | Filter example |
-| -------- | -------------- |
-| Run tagged "unit" | `fn(c) { list.contains(c.tags, "unit") }` |
-| Exclude "slow" | `fn(c) { !list.contains(c.tags, "slow") }` |
+| Use case           | Filter example                             |
+| ------------------ | ------------------------------------------ |
+| Run tagged "unit"  | `fn(c) { list.contains(c.tags, "unit") }`  |
+| Exclude "slow"     | `fn(c) { !list.contains(c.tags, "slow") }` |
 | Match name pattern | `fn(c) { string.contains(c.name, "add") }` |
-| Run all (default) | `None` |
+| Run all (default)  | `None`                                     |
 
 For Gherkin scenarios, use `dream_test/gherkin/feature.with_tags` instead.
 
@@ -333,6 +334,47 @@ pub fn main() {
 | Any test failed, timed out, or had setup failure | 1         |
 
 <sub>🧪 [Tested source](examples/snippets/test/quick_start.gleam)</sub>
+
+### JSON reporter
+
+Output test results as JSON for CI/CD integration, test aggregation, or tooling:
+
+```gleam
+import dream_test/reporter/json
+import dream_test/reporter/bdd.{report}
+
+pub fn main() {
+  to_test_cases("my_test", tests())
+  |> run_all()
+  |> report(io.print)           // Human-readable to stdout
+  |> json.report(write_to_file) // JSON to file
+  |> exit_on_failure()
+}
+```
+
+The JSON output includes system info, timing, and detailed failure data:
+
+```json
+{
+  "version": "1.0",
+  "timestamp_ms": 1733151045123,
+  "duration_ms": 315,
+  "system": { "os": "darwin", "otp_version": "27", "gleam_version": "0.67.0" },
+  "summary": { "total": 3, "passed": 2, "failed": 1, ... },
+  "tests": [
+    {
+      "name": "adds numbers",
+      "full_name": ["Calculator", "add", "adds numbers"],
+      "status": "passed",
+      "duration_ms": 2,
+      "kind": "unit",
+      "failures": []
+    }
+  ]
+}
+```
+
+<sub>🧪 [Tested source](examples/snippets/test/json_reporter.gleam)</sub>
 
 ---
 
@@ -812,6 +854,7 @@ Benefits:
 | Lifecycle hooks                   | ✅ Stable |
 | Assertions (`should.*`)           | ✅ Stable |
 | BDD Reporter                      | ✅ Stable |
+| JSON Reporter                     | ✅ Stable |
 | Parallel execution                | ✅ Stable |
 | Process isolation                 | ✅ Stable |
 | Crash handling                    | ✅ Stable |

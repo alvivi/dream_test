@@ -9,6 +9,7 @@ import dream_test/lifecycle_test
 import dream_test/process_test
 import dream_test/reporter/bdd.{report}
 import dream_test/reporter/bdd_test
+import dream_test/reporter/json_test
 import dream_test/runner.{exit_on_failure, run_all}
 import dream_test/runner_test
 import dream_test/sandbox_test
@@ -24,6 +25,7 @@ pub fn main() {
     runner_test.tests(),
     unit_test.tests(),
     bdd_test.tests(),
+    json_test.tests(),
     sandbox_test.tests(),
     process_test.tests(),
     lifecycle_test.tests(),

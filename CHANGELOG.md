@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Test tagging and filtering** (`dream_test/unit`, `dream_test/runner`)
+
   - `with_tags()` function to tag unit tests for categorization
   - `RunnerConfig.test_filter` predicate for selective test execution
   - Filter by tags, name, kind, or any `SingleTestConfig` field
@@ -19,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Unified tagging across unit tests and Gherkin scenarios
 
 - **`succeed()` function** (`dream_test/assertions/should`)
+
   - Explicit success counterpart to `fail_with()` for conditional branches
   - Use in `case` expressions where all branches must return `AssertionResult`
   - Recommended over importing `AssertionOk` directly in user code
@@ -50,18 +52,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Per-test and total duration in BDD and Gherkin reporters
   - Monotonic time measurement for accurate elapsed time
 
+- **JSON Reporter** (`dream_test/reporter/json`)
+
+  - Machine-readable JSON output for CI/CD integration
+  - `format` and `format_pretty` for string output
+  - `report` and `report_pretty` for pipeline integration
+  - Includes system info (OS, OTP version, Gleam version)
+  - Detailed failure payloads with expected/actual values
+  - Composable with BDD reporter for dual output
+
 ### Dependencies
 
 - Added `gleam_regexp` dependency for step pattern tokenization
-- Added `dream_ets` dependency for World state management
+- Added `gleam_json` dependency for JSON reporter
 
 ### Documentation
 
 - Added comprehensive Gherkin/BDD section to README
+- Added JSON reporter section to README
 - Added shopping cart example in `examples/shopping_cart/`
-- Added Gherkin snippets in `examples/snippets/`
-- Updated feature status table with Gherkin/Cucumber BDD
+- Added Gherkin and JSON reporter snippets in `examples/snippets/`
+- Updated feature status table with Gherkin/Cucumber BDD and JSON Reporter
 - Added custom matchers documentation with example snippet
+- Updated hexdocs for all new public functions
 
 ## [1.0.3] - 2025-12-01
 
