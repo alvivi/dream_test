@@ -10,4 +10,4 @@
 
 All versions tested with: `gleam test`
 
-Last tested: 2025-12-04
+Last tested: 2025-12-27
