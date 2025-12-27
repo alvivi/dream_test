@@ -1,6 +1,6 @@
 # Dream Test 2.0.0 Release Notes
 
-**Release Date:** 2025-12-17
+**Release Date:** 2025-12-27
 
 Dream Test 2.0 is a **major** release that makes test execution and reporting more explicit:
 
